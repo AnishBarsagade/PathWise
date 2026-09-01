@@ -1,0 +1,13 @@
+delivery_id,location,latitude,longitude,weight,priority
+D001,Nagpur Central,21.1458,79.0882,120,High
+D002,Dharampeth,21.1367,79.0710,80,Medium
+D003,Sadar,21.1610,79.0885,150,High
+D004,Manish Nagar,21.1070,79.0790,60,Low
+D005,Trimurti Nagar,21.1190,79.0660,100,Medium
+D006,Pratap Nagar,21.1280,79.0580,75,Low
+D007,Wardha Road,21.1120,79.0850,130,High
+D008,Itwari,21.1570,79.1020,90,Medium
+D009,Mahal,21.1430,79.0980,110,High
+D010,Jaripatka,21.1780,79.0870,70,Low
+D011,Ajni,21.1230,79.0910,95,Medium
+D012,Medical Square,21.1320,79.0980,140,High
