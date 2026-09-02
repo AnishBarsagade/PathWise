@@ -63,6 +63,32 @@ def validate_data(deliveries, vehicles):
     if (vehicles["fuel_cost"] <= 0).any():
         raise ValueError("Fuel cost must be greater than 0.")
 
+   # Check duplicate delivery IDs
+    if deliveries["delivery_id"].duplicated().any():
+        raise ValueError("Duplicate delivery IDs found.")
+
+    # Check duplicate vehicle IDs
+    if vehicles["vehicle_id"].duplicated().any():
+        raise ValueError("Duplicate vehicle IDs found.")
+
+    # Check latitude and longitude
+    if not deliveries["latitude"].between(-90, 90).all():
+        raise ValueError("Invalid latitude values.")
+
+    if not deliveries["longitude"].between(-180, 180).all():
+        raise ValueError("Invalid longitude values.")
+
+    # Check priority values
+    valid_priorities = ["Low", "Medium", "High"]
+
+    if not deliveries["priority"].isin(valid_priorities).all():
+        raise ValueError("Invalid priority values.")
+
+    # Check delivery weight against maximum vehicle capacity
+    if deliveries["weight"].max() > vehicles["capacity"].max():
+        raise ValueError(
+            "A delivery exceeds the maximum vehicle capacity."
+        )
     print("Data validation successful!")
 
 
