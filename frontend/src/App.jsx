@@ -4,6 +4,10 @@ import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import RouteOptimizer from "./pages/RouteOptimizer";
+import AHP from "./pages/AHP";
+import Results from "./pages/Results";
+
+
 const App = () => {
   return (
     <BrowserRouter>
@@ -18,6 +22,9 @@ const App = () => {
               <Route path="/" element={<Dashboard />} />
 
               <Route path="/route-optimizer" element={<RouteOptimizer />} />
+              <Route path="/ahp" element={<AHP/>} />
+
+              <Route path="/results" element={<Results/>} />
             </Routes>
           </main>
         </div>
