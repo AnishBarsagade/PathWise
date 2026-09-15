@@ -1,0 +1,7 @@
+.venv
+*.png
+.DS_Store
+Icon
+*.png
+*.jpg
+*.jpeg
