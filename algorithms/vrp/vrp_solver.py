@@ -1,26 +1,45 @@
+import argparse
+import json
 import math
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-from algorithms.cost_function.cost_function import (
-    calculate_route_cost,
-    get_ahp_weights_dict,
-)
-
-
-# ============================================================
-# PATHS
-# ============================================================
-
+# Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ALGORITHMS_DIR = Path(__file__).resolve().parents[1]
+for p in [str(PROJECT_ROOT), str(ALGORITHMS_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+try:
+    from algorithms.cost_function.cost_function import (
+        calculate_route_cost,
+        get_ahp_weights_dict,
+    )
+except ImportError:
+    try:
+        from cost_function.cost_function import (
+            calculate_route_cost,
+            get_ahp_weights_dict,
+        )
+    except ImportError:
+        from PathWise.algorithms.cost_function.cost_function import (
+            calculate_route_cost,
+            get_ahp_weights_dict,
+        )
+
+
+# ============================================================
+# PATHS & DEFAULTS
+# ============================================================
 
 DELIVERIES_FILE = PROJECT_ROOT / "data" / "deliveries.csv"
 VEHICLES_FILE = PROJECT_ROOT / "data" / "vehicles.csv"
 
-
-# Temporary demonstration depot
 DEPOT = {
     "latitude": 21.1450,
     "longitude": 79.0880,
@@ -31,9 +50,15 @@ DEPOT = {
 # 1. LOAD DATA
 # ============================================================
 
-def load_data():
-    deliveries = pd.read_csv(DELIVERIES_FILE)
-    vehicles = pd.read_csv(VEHICLES_FILE)
+def load_data(
+    deliveries_path: Optional[Union[str, Path]] = None,
+    vehicles_path: Optional[Union[str, Path]] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    deliv_p = Path(deliveries_path) if deliveries_path else DELIVERIES_FILE
+    veh_p = Path(vehicles_path) if vehicles_path else VEHICLES_FILE
+
+    deliveries = pd.read_csv(deliv_p)
+    vehicles = pd.read_csv(veh_p)
 
     return deliveries, vehicles
 
@@ -42,15 +67,18 @@ def load_data():
 # 2. VALIDATE DATA
 # ============================================================
 
-def validate_data(deliveries, vehicles):
+def validate_data(deliveries: pd.DataFrame, vehicles: pd.DataFrame) -> None:
+    if deliveries is None or len(deliveries) == 0:
+        raise ValueError("Missing deliveries data.")
+
+    if vehicles is None or len(vehicles) == 0:
+        raise ValueError("Missing vehicles data.")
 
     required_delivery_columns = [
         "delivery_id",
-        "location",
         "latitude",
         "longitude",
         "weight",
-        "priority",
     ]
 
     required_vehicle_columns = [
@@ -73,6 +101,13 @@ def validate_data(deliveries, vehicles):
     if vehicles[required_vehicle_columns].isnull().any().any():
         raise ValueError("Vehicle data contains missing values.")
 
+    # Validate coordinate ranges
+    if ((deliveries["latitude"] < -90) | (deliveries["latitude"] > 90)).any():
+        raise ValueError("Delivery latitude must be between -90 and 90.")
+
+    if ((deliveries["longitude"] < -180) | (deliveries["longitude"] > 180)).any():
+        raise ValueError("Delivery longitude must be between -180 and 180.")
+
     if (deliveries["weight"] <= 0).any():
         raise ValueError("Delivery weight must be greater than 0.")
 
@@ -82,40 +117,37 @@ def validate_data(deliveries, vehicles):
     if (vehicles["fuel_cost"] <= 0).any():
         raise ValueError("Vehicle fuel cost must be greater than 0.")
 
-    if deliveries["weight"].max() > vehicles["capacity"].max():
+    max_delivery_weight = deliveries["weight"].max()
+    max_vehicle_capacity = vehicles["capacity"].max()
+    if max_delivery_weight > max_vehicle_capacity:
         raise ValueError(
-            "A delivery exceeds the maximum vehicle capacity."
+            f"A delivery weight ({max_delivery_weight}) exceeds the maximum vehicle capacity ({max_vehicle_capacity})."
         )
-
-    print("Data validation successful!")
 
 
 # ============================================================
 # 3. HAVERSINE DISTANCE
 # ============================================================
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0  # Earth radius in km
 
-    lat1 = math.radians(lat1)
-    lon1 = math.radians(lon1)
+    r_lat1 = math.radians(lat1)
+    r_lon1 = math.radians(lon1)
+    r_lat2 = math.radians(lat2)
+    r_lon2 = math.radians(lon2)
 
-    lat2 = math.radians(lat2)
-    lon2 = math.radians(lon2)
-
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
+    dlat = r_lat2 - r_lat1
+    dlon = r_lon2 - r_lon1
 
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(lat1)
-        * math.cos(lat2)
+        + math.cos(r_lat1)
+        * math.cos(r_lat2)
         * math.sin(dlon / 2) ** 2
     )
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return R * c
 
 
@@ -123,23 +155,25 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 # 4. CREATE LOCATIONS
 # ============================================================
 
-def create_locations(deliveries):
-
+def create_locations(
+    deliveries: pd.DataFrame,
+    depot: Optional[Dict[str, float]] = None,
+) -> List[Dict[str, Any]]:
+    depot_loc = depot or DEPOT
     locations = [
         {
             "id": "DEPOT",
-            "latitude": DEPOT["latitude"],
-            "longitude": DEPOT["longitude"],
+            "latitude": float(depot_loc["latitude"]),
+            "longitude": float(depot_loc["longitude"]),
         }
     ]
 
     for _, row in deliveries.iterrows():
-
         locations.append(
             {
-                "id": row["delivery_id"],
-                "latitude": row["latitude"],
-                "longitude": row["longitude"],
+                "id": str(row["delivery_id"]),
+                "latitude": float(row["latitude"]),
+                "longitude": float(row["longitude"]),
             }
         )
 
@@ -150,19 +184,14 @@ def create_locations(deliveries):
 # 5. CREATE DISTANCE MATRIX
 # ============================================================
 
-def create_distance_matrix(locations):
-
+def create_distance_matrix(locations: List[Dict[str, Any]]) -> List[List[float]]:
     n = len(locations)
-
     distance_matrix = [[0.0] * n for _ in range(n)]
 
     for i in range(n):
-
         for j in range(n):
-
             if i == j:
                 continue
-
             distance_matrix[i][j] = haversine_distance(
                 locations[i]["latitude"],
                 locations[i]["longitude"],
@@ -177,38 +206,26 @@ def create_distance_matrix(locations):
 # 6. CREATE DEMONSTRATION FACTORS
 # ============================================================
 
-def create_factor_matrices(locations, vehicles):
-
+def create_factor_matrices(
+    locations: List[Dict[str, Any]],
+    vehicles: pd.DataFrame,
+) -> Dict[str, List[List[float]]]:
     n = len(locations)
 
     distance_matrix = [[0.0] * n for _ in range(n)]
-
     travel_time_matrix = [[0.0] * n for _ in range(n)]
-
     traffic_matrix = [[0.0] * n for _ in range(n)]
-
     fuel_cost_matrix = [[0.0] * n for _ in range(n)]
-
     weather_matrix = [[0.0] * n for _ in range(n)]
-
     road_condition_matrix = [[0.0] * n for _ in range(n)]
 
-
-    # Use average vehicle fuel cost for demonstration.
-    average_fuel_cost = vehicles["fuel_cost"].mean()
-
+    average_fuel_cost = float(vehicles["fuel_cost"].mean())
+    average_speed = 30.0  # km/h
 
     for i in range(n):
-
         for j in range(n):
-
             if i == j:
                 continue
-
-
-            # --------------------------------------------
-            # Distance
-            # --------------------------------------------
 
             distance = haversine_distance(
                 locations[i]["latitude"],
@@ -218,61 +235,11 @@ def create_factor_matrices(locations, vehicles):
             )
 
             distance_matrix[i][j] = distance
-
-
-            # --------------------------------------------
-            # Travel Time
-            #
-            # DEMO:
-            # Assume average speed = 30 km/h
-            # --------------------------------------------
-
-            average_speed = 30.0
-
-            travel_time = (distance / average_speed) * 60
-
-            travel_time_matrix[i][j] = travel_time
-
-
-            # --------------------------------------------
-            # Traffic
-            #
-            # DEMO VALUE
-            # --------------------------------------------
-
+            travel_time_matrix[i][j] = (distance / average_speed) * 60
             traffic_matrix[i][j] = 3.0
-
-
-            # --------------------------------------------
-            # Fuel Cost
-            #
-            # DEMO:
-            # fuel cost per km is approximated using
-            # vehicle fuel_cost value.
-            # --------------------------------------------
-
-            fuel_cost_matrix[i][j] = (
-                distance * average_fuel_cost
-            )
-
-
-            # --------------------------------------------
-            # Weather
-            #
-            # DEMO VALUE
-            # --------------------------------------------
-
+            fuel_cost_matrix[i][j] = distance * average_fuel_cost
             weather_matrix[i][j] = 2.0
-
-
-            # --------------------------------------------
-            # Road Condition
-            #
-            # DEMO VALUE
-            # --------------------------------------------
-
             road_condition_matrix[i][j] = 2.0
-
 
     return {
         "distance": distance_matrix,
@@ -288,54 +255,35 @@ def create_factor_matrices(locations, vehicles):
 # 7. CREATE MULTI-FACTOR COST MATRIX
 # ============================================================
 
-def create_multifactor_cost_matrix(factor_matrices):
-
+def create_multifactor_cost_matrix(
+    factor_matrices: Dict[str, List[List[float]]],
+    verbose: bool = False,
+) -> List[List[int]]:
     n = len(factor_matrices["distance"])
-
     cost_matrix = [[0] * n for _ in range(n)]
-
-
-    # Get AHP weights from existing AHP module
     ahp_weights = get_ahp_weights_dict()
 
-    print("\nAHP Weights:")
-
-    for factor, weight in ahp_weights.items():
-        print(f"{factor}: {weight:.4f}")
-
+    if verbose:
+        print("\nAHP Weights:")
+        for factor, weight in ahp_weights.items():
+            print(f"{factor}: {weight:.4f}")
 
     for i in range(n):
-
         for j in range(n):
-
             if i == j:
                 cost_matrix[i][j] = 0
                 continue
 
-
             route_cost = calculate_route_cost(
-
                 distance=factor_matrices["distance"][i][j],
-
                 travel_time=factor_matrices["travel_time"][i][j],
-
                 traffic=factor_matrices["traffic"][i][j],
-
                 fuel_cost=factor_matrices["fuel_cost"][i][j],
-
                 weather=factor_matrices["weather"][i][j],
-
-                road_condition=factor_matrices[
-                    "road_condition"
-                ][i][j],
-
+                road_condition=factor_matrices["road_condition"][i][j],
                 weights=ahp_weights,
-
             )
 
-
-            # OR-Tools requires integer costs.
-            # Scale the normalized cost.
             cost_matrix[i][j] = int(route_cost * 1000)
 
     return cost_matrix
@@ -346,29 +294,16 @@ def create_multifactor_cost_matrix(factor_matrices):
 # ============================================================
 
 def create_data_model(
-    cost_matrix,
-    deliveries,
-    vehicles,
-):
-
+    cost_matrix: List[List[int]],
+    deliveries: pd.DataFrame,
+    vehicles: pd.DataFrame,
+) -> Dict[str, Any]:
     data = {}
-
     data["cost_matrix"] = cost_matrix
-
-    # Depot = node 0
-    # Delivery D001 = node 1
-    # Delivery D002 = node 2
-    # ...
     data["demands"] = [0] + deliveries["weight"].astype(int).tolist()
-
-    data["vehicle_capacities"] = (
-        vehicles["capacity"].astype(int).tolist()
-    )
-
+    data["vehicle_capacities"] = vehicles["capacity"].astype(int).tolist()
     data["num_vehicles"] = len(vehicles)
-
     data["depot"] = 0
-
     return data
 
 
@@ -376,8 +311,7 @@ def create_data_model(
 # 9. CREATE OR-TOOLS MODEL
 # ============================================================
 
-def create_routing_model(data):
-
+def create_routing_model(data: Dict[str, Any]):
     manager = pywrapcp.RoutingIndexManager(
         len(data["cost_matrix"]),
         data["num_vehicles"],
@@ -386,48 +320,19 @@ def create_routing_model(data):
 
     routing = pywrapcp.RoutingModel(manager)
 
-
-    # ========================================================
-    # COST CALLBACK
-    # ========================================================
-
     def cost_callback(from_index, to_index):
-
         from_node = manager.IndexToNode(from_index)
-
         to_node = manager.IndexToNode(to_index)
-
         return data["cost_matrix"][from_node][to_node]
 
-
-    cost_callback_index = routing.RegisterTransitCallback(
-        cost_callback
-    )
-
-    routing.SetArcCostEvaluatorOfAllVehicles(
-        cost_callback_index
-    )
-
-
-    # ========================================================
-    # DEMAND CALLBACK
-    # ========================================================
+    cost_callback_index = routing.RegisterTransitCallback(cost_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(cost_callback_index)
 
     def demand_callback(from_index):
-
         from_node = manager.IndexToNode(from_index)
-
         return data["demands"][from_node]
 
-
-    demand_callback_index = routing.RegisterUnaryTransitCallback(
-        demand_callback
-    )
-
-
-    # ========================================================
-    # VEHICLE CAPACITY
-    # ========================================================
+    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
 
     routing.AddDimensionWithVehicleCapacity(
         demand_callback_index,
@@ -437,260 +342,222 @@ def create_routing_model(data):
         "Capacity",
     )
 
-
-    # ========================================================
-    # SEARCH PARAMETERS
-    # ========================================================
-
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     )
-
 
     return manager, routing, search_parameters
 
 
 # ============================================================
-# 10. PRINT SOLUTION
+# 10. FORMAT SOLUTION (STRUCTURED DATA)
+# ============================================================
+
+def format_solution(
+    manager: pywrapcp.RoutingIndexManager,
+    routing: pywrapcp.RoutingModel,
+    solution: Any,
+    deliveries: pd.DataFrame,
+    vehicles: pd.DataFrame,
+    include_empty_routes: bool = False,
+) -> Dict[str, Any]:
+    routes = []
+    total_cost = 0
+    total_load = 0
+
+    for vehicle_id in range(len(vehicles)):
+        index = routing.Start(vehicle_id)
+        route_nodes = []
+        route_load = 0
+        route_cost = 0
+
+        while not routing.IsEnd(index):
+            node = manager.IndexToNode(index)
+            route_nodes.append(node)
+            route_load += 0 if node == 0 else int(deliveries.iloc[node - 1]["weight"])
+
+            next_index = solution.Value(routing.NextVar(index))
+            route_cost += routing.GetArcCostForVehicle(index, next_index, vehicle_id)
+            index = next_index
+
+        route_nodes.append(manager.IndexToNode(index))
+
+        route_names = []
+        for node in route_nodes:
+            if node == 0:
+                route_names.append("DEPOT")
+            else:
+                route_names.append(str(deliveries.iloc[node - 1]["delivery_id"]))
+
+        vehicle_name = str(vehicles.iloc[vehicle_id]["vehicle_id"])
+        vehicle_capacity = int(vehicles.iloc[vehicle_id]["capacity"])
+        scaled_cost = round(route_cost / 1000.0, 4)
+
+        route_dict = {
+            "vehicle_id": vehicle_name,
+            "route": route_names,
+            "load": route_load,
+            "capacity": vehicle_capacity,
+            "cost": scaled_cost,
+        }
+
+        total_cost += route_cost
+        total_load += route_load
+
+        # If vehicle served any deliveries (has nodes besides DEPOT -> DEPOT)
+        if len(route_names) > 2 or include_empty_routes:
+            routes.append(route_dict)
+
+    return {
+        "routes": routes,
+        "total_cost": round(total_cost / 1000.0, 4),
+        "total_load": total_load,
+    }
+
+
+# ============================================================
+# 11. PRINT SOLUTION (DISPLAY LOGIC)
 # ============================================================
 
 def print_solution(
-    manager,
-    routing,
-    solution,
-    deliveries,
-    vehicles,
-    factor_matrices,
-):
-
+    result: Dict[str, Any],
+    all_vehicles: Optional[pd.DataFrame] = None,
+) -> None:
     print("\n")
     print("=" * 30)
     print("PATHWISE MULTI-FACTOR VRP RESULT")
     print("=" * 30)
 
-
-    total_cost = 0
-
-    total_load = 0
-
-
-    for vehicle_id in range(len(vehicles)):
-
-        index = routing.Start(vehicle_id)
-
-        route = []
-
-        route_load = 0
-
-        route_cost = 0
-
-
-        while not routing.IsEnd(index):
-
-            node = manager.IndexToNode(index)
-
-            route.append(node)
-
-            route_load += (
-                0
-                if node == 0
-                else int(deliveries.iloc[node - 1]["weight"])
-            )
-
-
-            next_index = solution.Value(
-                routing.NextVar(index)
-            )
-
-            route_cost += routing.GetArcCostForVehicle(
-                index,
-                next_index,
-                vehicle_id,
-            )
-
-            index = next_index
-
-
-        route.append(
-            manager.IndexToNode(index)
-        )
-
-
-        # Convert node numbers to delivery IDs
-
-        route_names = []
-
-        for node in route:
-
-            if node == 0:
-                route_names.append("DEPOT")
-
-            else:
-                route_names.append(
-                    deliveries.iloc[node - 1]["delivery_id"]
-                )
-
-
-        vehicle_name = vehicles.iloc[
-            vehicle_id
-        ]["vehicle_id"]
-
-        vehicle_capacity = vehicles.iloc[
-            vehicle_id
-        ]["capacity"]
-
-
-        print(f"\nVehicle {vehicle_name}")
-
-        print(
-            "Route: "
-            + " -> ".join(route_names)
-        )
-
-        print(
-            f"Load: {route_load} / "
-            f"{int(vehicle_capacity)} kg"
-        )
-
-        print(
-            f"Multi-factor cost: "
-            f"{route_cost / 1000:.4f}"
-        )
-
-
-        total_cost += route_cost
-
-        total_load += route_load
-
+    for r in result.get("routes", []):
+        print(f"\nVehicle {r['vehicle_id']}")
+        print("Route: " + " -> ".join(r["route"]))
+        print(f"Load: {r['load']} / {r['capacity']} kg")
+        print(f"Multi-factor cost: {r['cost']:.4f}")
 
     print("\n" + "=" * 30)
-
-    print(
-        f"Total multi-factor cost: "
-        f"{total_cost / 1000:.4f}"
-    )
-
-    print(
-        f"Total delivery load: "
-        f"{total_load} kg"
-    )
-
+    print(f"Total multi-factor cost: {result['total_cost']:.4f}")
+    print(f"Total delivery load: {result['total_load']} kg")
     print("=" * 30)
 
 
 # ============================================================
-# 11. MAIN
+# 12. OPTIMIZE ROUTES (CORE CALLABLE FUNCTION)
+# ============================================================
+
+def optimize_routes(
+    deliveries: Optional[Union[pd.DataFrame, List[Dict[str, Any]]]] = None,
+    vehicles: Optional[Union[pd.DataFrame, List[Dict[str, Any]]]] = None,
+    depot: Optional[Dict[str, float]] = None,
+    verbose: bool = False,
+) -> Dict[str, Any]:
+    # 1. Load data if not provided
+    if deliveries is None or vehicles is None:
+        demo_deliveries, demo_vehicles = load_data()
+        if deliveries is None:
+            deliveries = demo_deliveries
+        if vehicles is None:
+            vehicles = demo_vehicles
+
+    # Convert list of dicts to DataFrame if needed
+    if isinstance(deliveries, list):
+        deliveries = pd.DataFrame(deliveries)
+    if isinstance(vehicles, list):
+        vehicles = pd.DataFrame(vehicles)
+
+    # 2. Validate
+    validate_data(deliveries, vehicles)
+
+    # 3. Create locations
+    locations = create_locations(deliveries, depot=depot)
+
+    # 4. Multi-factor matrices
+    factor_matrices = create_factor_matrices(locations, vehicles)
+
+    # 5. Multi-factor cost matrix
+    cost_matrix = create_multifactor_cost_matrix(factor_matrices, verbose=verbose)
+
+    # 6. OR-Tools Data & Routing Model
+    data = create_data_model(cost_matrix, deliveries, vehicles)
+    manager, routing, search_parameters = create_routing_model(data)
+
+    # 7. Solve
+    solution = routing.SolveWithParameters(search_parameters)
+
+    if not solution:
+        raise RuntimeError("No feasible VRP solution found for the provided inputs.")
+
+    # 8. Return structured solution
+    return format_solution(manager, routing, solution, deliveries, vehicles)
+
+
+# ============================================================
+# 13. MAIN / CLI
 # ============================================================
 
 def main():
+    parser = argparse.ArgumentParser(description="PathWise VRP Optimization Engine")
+    parser.add_argument("--json", action="store_true", help="Output result as JSON to stdout")
+    parser.add_argument("--input", type=str, default=None, help="Path to input JSON file or raw JSON string, or '-' for stdin")
+    parser.add_argument("--stdin", action="store_true", help="Read input JSON from stdin")
+    args = parser.parse_args()
 
-    print("Loading PathWise data...")
+    input_data = None
+    # Check if input was provided via --input or --stdin
+    if args.stdin or args.input == "-":
+        stdin_content = sys.stdin.read().strip()
+        if stdin_content:
+            try:
+                input_data = json.loads(stdin_content)
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({"error": "Invalid JSON input", "message": str(e)}))
+                    sys.exit(1)
+                raise
+    elif args.input:
+        input_str = args.input.strip()
+        if Path(input_str).is_file():
+            with open(input_str, "r", encoding="utf-8") as f:
+                input_data = json.load(f)
+        else:
+            try:
+                input_data = json.loads(input_str)
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({"error": "Invalid JSON input", "message": str(e)}))
+                    sys.exit(1)
+                raise
 
-    deliveries, vehicles = load_data()
+    deliveries = None
+    vehicles = None
+    depot = None
 
-    print(
-        f"Deliveries loaded: {len(deliveries)}"
-    )
+    if input_data:
+        deliveries = input_data.get("deliveries")
+        vehicles = input_data.get("vehicles")
+        depot = input_data.get("depot")
 
-    print(
-        f"Vehicles loaded: {len(vehicles)}"
-    )
-
-
-    print("\nValidating data...")
-
-    validate_data(
-        deliveries,
-        vehicles,
-    )
-
-
-    # --------------------------------------------------------
-    # Create locations
-    # --------------------------------------------------------
-
-    locations = create_locations(
-        deliveries
-    )
-
-
-    print("\nCreating multi-factor matrices...")
-
-    factor_matrices = create_factor_matrices(
-        locations,
-        vehicles,
-    )
-
-
-    print(
-        f"Matrix size: "
-        f"{len(locations)} x {len(locations)}"
-    )
-
-
-    # --------------------------------------------------------
-    # Multi-factor cost matrix
-    # --------------------------------------------------------
-
-    print(
-        "\nCreating multi-factor cost matrix..."
-    )
-
-    cost_matrix = create_multifactor_cost_matrix(
-        factor_matrices
-    )
-    print("\nMulti-Factor Cost Matrix:")
-
-    for row in cost_matrix:
-        print(row)
-
-
-    # --------------------------------------------------------
-    # OR-Tools
-    # --------------------------------------------------------
-
-    print("\nRunning OR-Tools...")
-
-    data = create_data_model(
-        cost_matrix,
-        deliveries,
-        vehicles,
-    )
-
-
-    manager, routing, search_parameters = (
-        create_routing_model(data)
-    )
-
-
-    solution = routing.SolveWithParameters(
-        search_parameters
-    )
-
-
-    if solution:
-
-        print_solution(
-            manager,
-            routing,
-            solution,
-            deliveries,
-            vehicles,
-            factor_matrices,
+    try:
+        result = optimize_routes(
+            deliveries=deliveries,
+            vehicles=vehicles,
+            depot=depot,
+            verbose=not args.json,
         )
 
-    else:
+        if args.json:
+            print(json.dumps(result))
+        else:
+            print_solution(result)
 
-        print(
-            "No solution found."
-        )
+    except Exception as exc:
+        if args.json:
+            print(json.dumps({"error": "Optimization Error", "message": str(exc)}))
+            sys.exit(1)
+        else:
+            print(f"Error during optimization: {exc}", file=sys.stderr)
+            sys.exit(1)
 
-
-# ============================================================
-# RUN
-# ============================================================
 
 if __name__ == "__main__":
     main()
