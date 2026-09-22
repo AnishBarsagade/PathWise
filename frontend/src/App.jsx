@@ -1,34 +1,60 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
+
+import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import RouteOptimizer from "./pages/RouteOptimizer";
 import AHP from "./pages/AHP";
+import CostFunction from "./pages/CostFunction";
 import Results from "./pages/Results";
-
+import DynamicRerouting from "./pages/DynamicRerouting";
 
 const App = () => {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-100">
-        <Navbar />
+      <Routes>
+        {/* Landing Page */}
+        <Route path="/" element={<Landing />} />
 
-        <div className="flex">
-          <Sidebar />
+        {/* Application */}
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen bg-[#050816] text-white">
+              <Navbar />
 
-          <main className="flex-1 p-8">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <div className="flex">
+                <Sidebar />
 
-              <Route path="/route-optimizer" element={<RouteOptimizer />} />
-              <Route path="/ahp" element={<AHP/>} />
+                <main className="min-w-0 flex-1 bg-[#050816] p-6 lg:p-8">
+                  <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
 
-              <Route path="/results" element={<Results/>} />
-            </Routes>
-          </main>
-        </div>
-      </div>
+                    <Route
+                      path="/route-optimizer"
+                      element={<RouteOptimizer />}
+                    />
+
+                    <Route path="/ahp" element={<AHP />} />
+
+                    <Route path="/cost-function" element={<CostFunction />} />
+
+                    <Route path="/results" element={<Results />} />
+
+                    <Route
+                      path="/dynamic-rerouting"
+                      element={<DynamicRerouting />}
+                    />
+                  </Routes>
+                </main>
+              </div>
+            </div>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 };
