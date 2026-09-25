@@ -7,5 +7,6 @@ const router = express.Router();
 
 router.get('/health', getHealth);
 router.post('/optimize', validateOptimizationInput, optimizeRoutes);
+router.post('/optimize-route', validateOptimizationInput, optimizeRoutes);
 
 module.exports = router;

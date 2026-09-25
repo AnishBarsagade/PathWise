@@ -29,11 +29,13 @@ describe('Optimization API (POST /api/optimize)', () => {
       expect(r).toHaveProperty('route');
       expect(r).toHaveProperty('load');
       expect(r).toHaveProperty('capacity');
+      expect(r).toHaveProperty('distance');
       expect(r).toHaveProperty('cost');
 
       expect(typeof r.vehicle_id).toBe('string');
       expect(r.vehicle_id).toMatch(/^V\d+/);
       expect(r.capacity).toBeGreaterThanOrEqual(r.load);
+      expect(r.distance).toBeGreaterThan(0);
 
       expect(r.route[0]).toBe('DEPOT');
       expect(r.route[r.route.length - 1]).toBe('DEPOT');
@@ -45,6 +47,17 @@ describe('Optimization API (POST /api/optimize)', () => {
     expect(assignedDeliveries.length).toBe(12);
     const uniqueDeliveries = new Set(assignedDeliveries);
     expect(uniqueDeliveries.size).toBe(12);
+  }, 15000);
+
+  // 1b. Support POST /api/optimize-route endpoint
+  it('should return 200 on POST /api/optimize-route', async () => {
+    const res = await request(app).post('/api/optimize-route').send({});
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('routes');
+    expect(res.body).toHaveProperty('total_cost');
+    expect(res.body).toHaveProperty('total_distance');
+    expect(res.body).toHaveProperty('total_load');
+    expect(res.body.routes.length).toBeGreaterThan(0);
   }, 15000);
 
   // 2. Valid optimization with custom payload

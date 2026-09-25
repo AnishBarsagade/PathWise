@@ -49,25 +49,24 @@ def a_star(graph, start, goal, heuristic):
     return path, cost_so_far[goal]
 
 
-# -------------------------
-# Test Road Network
-# -------------------------
+if __name__ == "__main__":
+    # -------------------------
+    # Test Road Network
+    # -------------------------
 
-graph = {
-    "A": [("B", 4), ("C", 2)],
-    "B": [("A", 4), ("C", 1), ("D", 5)],
-    "C": [("A", 2), ("B", 1), ("D", 8), ("E", 10)],
-    "D": [("B", 5), ("C", 8), ("E", 2)],
-    "E": [("C", 10), ("D", 2)]
-}
+    graph = {
+        "A": [("B", 4), ("C", 2)],
+        "B": [("A", 4), ("C", 1), ("D", 5)],
+        "C": [("A", 2), ("B", 1), ("D", 8), ("E", 10)],
+        "D": [("B", 5), ("C", 8), ("E", 2)],
+        "E": [("C", 10), ("D", 2)]
+    }
 
+    # Simple heuristic for demonstration
+    def heuristic(node, goal):
+        return 0
 
-# Simple heuristic for demonstration
-def heuristic(node, goal):
-    return 0
+    path, distance = a_star(graph, "A", "E", heuristic)
 
-
-path, distance = a_star(graph, "A", "E", heuristic)
-
-print("Shortest Route:", " → ".join(path))
-print("Total Distance:", distance)
+    print("Shortest Route:", " -> ".join(path))
+    print("Total Distance:", distance)

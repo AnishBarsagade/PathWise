@@ -350,6 +350,15 @@ def create_routing_model(data: Dict[str, Any]):
     return manager, routing, search_parameters
 
 
+try:
+    from algorithms.astar.astar import a_star
+except ImportError:
+    try:
+        from astar.astar import a_star
+    except ImportError:
+        pass
+
+
 # ============================================================
 # 10. FORMAT SOLUTION (STRUCTURED DATA)
 # ============================================================
@@ -360,17 +369,22 @@ def format_solution(
     solution: Any,
     deliveries: pd.DataFrame,
     vehicles: pd.DataFrame,
+    factor_matrices: Optional[Dict[str, List[List[float]]]] = None,
     include_empty_routes: bool = False,
 ) -> Dict[str, Any]:
     routes = []
     total_cost = 0
     total_load = 0
+    total_distance = 0.0
+
+    distance_matrix = factor_matrices.get("distance") if factor_matrices else None
 
     for vehicle_id in range(len(vehicles)):
         index = routing.Start(vehicle_id)
         route_nodes = []
         route_load = 0
         route_cost = 0
+        route_distance = 0.0
 
         while not routing.IsEnd(index):
             node = manager.IndexToNode(index)
@@ -378,7 +392,10 @@ def format_solution(
             route_load += 0 if node == 0 else int(deliveries.iloc[node - 1]["weight"])
 
             next_index = solution.Value(routing.NextVar(index))
+            next_node = manager.IndexToNode(next_index)
             route_cost += routing.GetArcCostForVehicle(index, next_index, vehicle_id)
+            if distance_matrix:
+                route_distance += distance_matrix[node][next_node]
             index = next_index
 
         route_nodes.append(manager.IndexToNode(index))
@@ -399,11 +416,13 @@ def format_solution(
             "route": route_names,
             "load": route_load,
             "capacity": vehicle_capacity,
+            "distance": round(route_distance, 2),
             "cost": scaled_cost,
         }
 
         total_cost += route_cost
         total_load += route_load
+        total_distance += route_distance
 
         # If vehicle served any deliveries (has nodes besides DEPOT -> DEPOT)
         if len(route_names) > 2 or include_empty_routes:
@@ -412,6 +431,7 @@ def format_solution(
     return {
         "routes": routes,
         "total_cost": round(total_cost / 1000.0, 4),
+        "total_distance": round(total_distance, 2),
         "total_load": total_load,
     }
 
@@ -433,10 +453,14 @@ def print_solution(
         print(f"\nVehicle {r['vehicle_id']}")
         print("Route: " + " -> ".join(r["route"]))
         print(f"Load: {r['load']} / {r['capacity']} kg")
+        if "distance" in r:
+            print(f"Distance: {r['distance']} km")
         print(f"Multi-factor cost: {r['cost']:.4f}")
 
     print("\n" + "=" * 30)
     print(f"Total multi-factor cost: {result['total_cost']:.4f}")
+    if "total_distance" in result:
+        print(f"Total distance: {result['total_distance']} km")
     print(f"Total delivery load: {result['total_load']} kg")
     print("=" * 30)
 
@@ -488,7 +512,14 @@ def optimize_routes(
         raise RuntimeError("No feasible VRP solution found for the provided inputs.")
 
     # 8. Return structured solution
-    return format_solution(manager, routing, solution, deliveries, vehicles)
+    return format_solution(
+        manager,
+        routing,
+        solution,
+        deliveries,
+        vehicles,
+        factor_matrices=factor_matrices,
+    )
 
 
 # ============================================================
