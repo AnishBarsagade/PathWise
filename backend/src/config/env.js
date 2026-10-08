@@ -12,6 +12,8 @@ const config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
   PYTHON_PATH: process.env.PYTHON_PATH || 'python',
+  JWT_SECRET: process.env.JWT_SECRET || 'pathwise-dev-secret-key-2026',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
   PROJECT_ROOT,
 };
 

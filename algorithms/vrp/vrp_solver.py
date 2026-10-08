@@ -124,6 +124,16 @@ def validate_data(deliveries: pd.DataFrame, vehicles: pd.DataFrame) -> None:
             f"A delivery weight ({max_delivery_weight}) exceeds the maximum vehicle capacity ({max_vehicle_capacity})."
         )
 
+    # Ensure priority column is present and properly formatted
+    if "priority" not in deliveries.columns:
+        deliveries["priority"] = "Medium"
+    else:
+        deliveries["priority"] = deliveries["priority"].fillna("Medium").astype(str).str.capitalize()
+        valid_priorities = {"High", "Medium", "Low"}
+        deliveries["priority"] = deliveries["priority"].apply(
+            lambda p: p if p in valid_priorities else "Medium"
+        )
+
 
 # ============================================================
 # 3. HAVERSINE DISTANCE
@@ -297,6 +307,8 @@ def create_data_model(
     cost_matrix: List[List[int]],
     deliveries: pd.DataFrame,
     vehicles: pd.DataFrame,
+    priority_penalties: Optional[Dict[str, int]] = None,
+    priority_urgency_weight: int = 0,
 ) -> Dict[str, Any]:
     data = {}
     data["cost_matrix"] = cost_matrix
@@ -304,6 +316,20 @@ def create_data_model(
     data["vehicle_capacities"] = vehicles["capacity"].astype(int).tolist()
     data["num_vehicles"] = len(vehicles)
     data["depot"] = 0
+
+    # Extract delivery priority values
+    priorities = []
+    if "priority" in deliveries.columns:
+        priorities = deliveries["priority"].astype(str).tolist()
+    else:
+        priorities = ["Medium"] * len(deliveries)
+    data["priorities"] = priorities
+    data["priority_penalties"] = priority_penalties or {
+        "High": 1000000,
+        "Medium": 100000,
+        "Low": 20000,
+    }
+    data["priority_urgency_weight"] = priority_urgency_weight
     return data
 
 
@@ -342,6 +368,35 @@ def create_routing_model(data: Dict[str, Any]):
         "Capacity",
     )
 
+    # 1. Apply Priority Disjunctions (Drop penalties)
+    # High-priority orders have severe penalties for being unserved,
+    # ensuring they receive service preference over medium and low priority.
+    if "priorities" in data and data["priorities"]:
+        penalties_map = data.get("priority_penalties", {})
+        for i, priority_val in enumerate(data["priorities"]):
+            node = i + 1
+            idx = manager.NodeToIndex(node)
+            penalty = penalties_map.get(priority_val, 100000)
+            routing.AddDisjunction([idx], penalty)
+
+    # 2. Apply Priority Visit Urgency (Order preference) if urgency weight > 0
+    urgency_weight = data.get("priority_urgency_weight", 0)
+    if urgency_weight > 0 and "priorities" in data and data["priorities"]:
+        routing.AddConstantDimensionWithSlack(
+            1,
+            len(data["cost_matrix"]) + 1,
+            0,
+            True,
+            "Steps",
+        )
+        steps_dim = routing.GetDimensionOrDie("Steps")
+        p_weights = {"High": 3, "Medium": 2, "Low": 1}
+        for i, priority_val in enumerate(data["priorities"]):
+            node = i + 1
+            idx = manager.NodeToIndex(node)
+            p_val = p_weights.get(priority_val, 2)
+            steps_dim.SetCumulVarSoftUpperBound(idx, 0, p_val * urgency_weight)
+
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
@@ -366,6 +421,15 @@ def format_solution(
     total_cost = 0
     total_load = 0
 
+    deliv_priority_map = {}
+    deliv_weight_map = {}
+    for _, row in deliveries.iterrows():
+        d_id = str(row["delivery_id"])
+        deliv_priority_map[d_id] = str(row.get("priority", "Medium"))
+        deliv_weight_map[d_id] = int(row["weight"])
+
+    all_served_delivery_ids = set()
+
     for vehicle_id in range(len(vehicles)):
         index = routing.Start(vehicle_id)
         route_nodes = []
@@ -384,11 +448,24 @@ def format_solution(
         route_nodes.append(manager.IndexToNode(index))
 
         route_names = []
+        delivery_priorities = {}
+        delivery_details = []
+
         for node in route_nodes:
             if node == 0:
                 route_names.append("DEPOT")
             else:
-                route_names.append(str(deliveries.iloc[node - 1]["delivery_id"]))
+                d_id = str(deliveries.iloc[node - 1]["delivery_id"])
+                p_val = str(deliveries.iloc[node - 1].get("priority", "Medium"))
+                w_val = int(deliveries.iloc[node - 1]["weight"])
+                route_names.append(d_id)
+                delivery_priorities[d_id] = p_val
+                delivery_details.append({
+                    "delivery_id": d_id,
+                    "priority": p_val,
+                    "weight": w_val,
+                })
+                all_served_delivery_ids.add(d_id)
 
         vehicle_name = str(vehicles.iloc[vehicle_id]["vehicle_id"])
         vehicle_capacity = int(vehicles.iloc[vehicle_id]["capacity"])
@@ -400,6 +477,8 @@ def format_solution(
             "load": route_load,
             "capacity": vehicle_capacity,
             "cost": scaled_cost,
+            "delivery_priorities": delivery_priorities,
+            "delivery_details": delivery_details,
         }
 
         total_cost += route_cost
@@ -409,10 +488,29 @@ def format_solution(
         if len(route_names) > 2 or include_empty_routes:
             routes.append(route_dict)
 
+    total_high = sum(1 for p in deliv_priority_map.values() if p == "High")
+    total_med = sum(1 for p in deliv_priority_map.values() if p == "Medium")
+    total_low = sum(1 for p in deliv_priority_map.values() if p == "Low")
+
+    served_high = sum(1 for d in all_served_delivery_ids if deliv_priority_map.get(d) == "High")
+    served_med = sum(1 for d in all_served_delivery_ids if deliv_priority_map.get(d) == "Medium")
+    served_low = sum(1 for d in all_served_delivery_ids if deliv_priority_map.get(d) == "Low")
+
+    priority_summary = {
+        "High": {"total": total_high, "served": served_high},
+        "Medium": {"total": total_med, "served": served_med},
+        "Low": {"total": total_low, "served": served_low},
+        "total_deliveries": len(deliveries),
+        "total_served": len(all_served_delivery_ids),
+        "all_high_priority_served": (served_high == total_high) if total_high > 0 else True,
+    }
+
     return {
         "routes": routes,
         "total_cost": round(total_cost / 1000.0, 4),
         "total_load": total_load,
+        "priority_summary": priority_summary,
+        "deliveries_priority": deliv_priority_map,
     }
 
 
@@ -434,10 +532,18 @@ def print_solution(
         print("Route: " + " -> ".join(r["route"]))
         print(f"Load: {r['load']} / {r['capacity']} kg")
         print(f"Multi-factor cost: {r['cost']:.4f}")
+        if "delivery_priorities" in r and r["delivery_priorities"]:
+            p_strs = [f"{k}: {v}" for k, v in r["delivery_priorities"].items()]
+            print("Priorities: " + ", ".join(p_strs))
 
     print("\n" + "=" * 30)
     print(f"Total multi-factor cost: {result['total_cost']:.4f}")
     print(f"Total delivery load: {result['total_load']} kg")
+    if "priority_summary" in result:
+        ps = result["priority_summary"]
+        print(f"Priority Served - High: {ps['High']['served']}/{ps['High']['total']}, "
+              f"Medium: {ps['Medium']['served']}/{ps['Medium']['total']}, "
+              f"Low: {ps['Low']['served']}/{ps['Low']['total']}")
     print("=" * 30)
 
 
@@ -450,6 +556,8 @@ def optimize_routes(
     vehicles: Optional[Union[pd.DataFrame, List[Dict[str, Any]]]] = None,
     depot: Optional[Dict[str, float]] = None,
     verbose: bool = False,
+    priority_penalties: Optional[Dict[str, int]] = None,
+    priority_urgency_weight: int = 0,
 ) -> Dict[str, Any]:
     # 1. Load data if not provided
     if deliveries is None or vehicles is None:
@@ -478,7 +586,13 @@ def optimize_routes(
     cost_matrix = create_multifactor_cost_matrix(factor_matrices, verbose=verbose)
 
     # 6. OR-Tools Data & Routing Model
-    data = create_data_model(cost_matrix, deliveries, vehicles)
+    data = create_data_model(
+        cost_matrix,
+        deliveries,
+        vehicles,
+        priority_penalties=priority_penalties,
+        priority_urgency_weight=priority_urgency_weight,
+    )
     manager, routing, search_parameters = create_routing_model(data)
 
     # 7. Solve
@@ -531,11 +645,15 @@ def main():
     deliveries = None
     vehicles = None
     depot = None
+    priority_penalties = None
+    priority_urgency_weight = 0
 
     if input_data:
         deliveries = input_data.get("deliveries")
         vehicles = input_data.get("vehicles")
         depot = input_data.get("depot")
+        priority_penalties = input_data.get("priority_penalties")
+        priority_urgency_weight = int(input_data.get("priority_urgency_weight", 0))
 
     try:
         result = optimize_routes(
@@ -543,6 +661,8 @@ def main():
             vehicles=vehicles,
             depot=depot,
             verbose=not args.json,
+            priority_penalties=priority_penalties,
+            priority_urgency_weight=priority_urgency_weight,
         )
 
         if args.json:

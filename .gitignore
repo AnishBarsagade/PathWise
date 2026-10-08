@@ -9,4 +9,29 @@ __pycache__/
 *.py[cod]
 *$py.class
 node_modules/
-.env
+.env
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+.env.*
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+*.db
+*.db-shm
+*.db-wal

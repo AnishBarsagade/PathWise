@@ -1,8 +1,11 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const pageNames = {
     "/dashboard": "Dashboard",
@@ -14,6 +17,11 @@ const Navbar = () => {
   };
 
   const currentPage = pageNames[location.pathname] || "PathWise";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050816]/85 backdrop-blur-xl">
@@ -43,19 +51,25 @@ const Navbar = () => {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="hidden items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 sm:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
 
             <span className="text-xs text-emerald-300">System Online</span>
           </div>
 
-          <Link
-            to="/"
-            className="rounded-xl border border-white/10 bg-white/3 px-4 py-2 text-sm text-gray-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-300"
+          {user && (
+            <span className="hidden text-xs text-gray-400 lg:block">
+              {user.email}
+            </span>
+          )}
+
+          <button
+            onClick={handleLogout}
+            className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-2 text-sm text-gray-300 transition hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-300"
           >
-            Home
-          </Link>
+            Logout
+          </button>
         </div>
       </div>
     </header>
