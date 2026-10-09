@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Map from "../components/Map";
-import { runOptimization } from "../services/api";
+import { getDeliveries, getVehicles, runOptimization } from "../services/api";
 
 const RouteOptimizer = () => {
   const navigate = useNavigate();
@@ -32,6 +32,19 @@ const RouteOptimizer = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [savedDeliveries, setSavedDeliveries] = useState([]);
+  const [savedVehicles, setSavedVehicles] = useState([]);
+  const [mapNotice, setMapNotice] = useState('Loading saved delivery locations…');
+
+  useEffect(() => {
+    Promise.all([getDeliveries(), getVehicles('availability=1')])
+      .then(([deliveryData, vehicleData]) => {
+        setSavedDeliveries((deliveryData.records || []).filter((delivery) => ['pending', 'assigned'].includes(delivery.status)));
+        setSavedVehicles((vehicleData || []).filter((vehicle) => vehicle.operational_status === 'available'));
+        setMapNotice('');
+      })
+      .catch((err) => setMapNotice(`Unable to load saved delivery locations: ${err.message}`));
+  }, []);
 
   // -----------------------------
   // Vehicle handlers
@@ -172,57 +185,15 @@ const RouteOptimizer = () => {
 
   const handleRunOptimization = async () => {
     if (loading) return;
-
     setError(null);
-
-    const validationError = validateInput();
-
-    if (validationError) {
-      setError(validationError);
+    if (!savedDeliveries.length || !savedVehicles.length) {
+      setError('No eligible saved deliveries or available fleet vehicles exist. Load or update data in Delivery and Fleet Management first.');
       return;
     }
-
     setLoading(true);
-
     try {
-      const payload = {
-        deliveries: deliveries.map((delivery) => ({
-          delivery_id: delivery.delivery_id.trim(),
-          location: delivery.location.trim(),
-          latitude: Number(delivery.latitude),
-          longitude: Number(delivery.longitude),
-          weight: Number(delivery.weight),
-          priority: delivery.priority,
-        })),
-
-        vehicles: vehicles.map((vehicle) => ({
-          vehicle_id: vehicle.vehicle_id.trim(),
-          capacity: Number(vehicle.capacity),
-          fuel_cost: Number(vehicle.fuel_cost),
-        })),
-
-        depot: {
-          latitude: Number(depot.latitude),
-          longitude: Number(depot.longitude),
-        },
-
-        // Keep the existing PathWise priority configuration.
-        priority_penalties: {
-          High: 100000,
-          Medium: 50000,
-          Low: 10000,
-        },
-
-        priority_urgency_weight: 0,
-      };
-
-      const optimizationData = await runOptimization(payload);
-
-      navigate("/results", {
-        state: {
-          result: optimizationData,
-        },
-      });
+      const optimizationData = await runOptimization({});
+      navigate(`/results?run=${encodeURIComponent(optimizationData.run_id)}`, { state: { result: optimizationData } });
     } catch (err) {
       setError(
         err.message ||
@@ -233,23 +204,31 @@ const RouteOptimizer = () => {
     }
   };
 
+  // Preserve the existing ad-hoc scenario form without allowing it to be
+  // mistaken for the primary persisted-fleet workflow.
+  const handleManualScenario = async () => {
+    if (loading) return;
+    const validationError = validateInput();
+    if (validationError) { setError(validationError); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await runOptimization({
+        deliveries: deliveries.map((delivery) => ({ ...delivery, delivery_id: delivery.delivery_id.trim(), location: delivery.location.trim(), latitude: Number(delivery.latitude), longitude: Number(delivery.longitude), weight: Number(delivery.weight) })),
+        vehicles: vehicles.map((vehicle) => ({ vehicle_id: vehicle.vehicle_id.trim(), capacity: Number(vehicle.capacity), fuel_cost: Number(vehicle.fuel_cost) })),
+        depot: { latitude: Number(depot.latitude), longitude: Number(depot.longitude) },
+        priority_penalties: { High: 100000, Medium: 50000, Low: 10000 },
+        priority_urgency_weight: 0,
+      });
+      navigate(`/results?run=${encodeURIComponent(result.run_id)}`, { state: { result } });
+    } catch (err) { setError(err.message || 'Unable to run the manual scenario.'); }
+    finally { setLoading(false); }
+  };
+
   // -----------------------------
   // Map preview
   // -----------------------------
 
-  const sourceCoordinates = [
-    Number(depot.latitude) || 21.145,
-    Number(depot.longitude) || 79.088,
-  ];
-
-  const firstDelivery = deliveries[0];
-
-  const destinationCoordinates = firstDelivery
-    ? [
-        Number(firstDelivery.latitude) || 21.1458,
-        Number(firstDelivery.longitude) || 79.0882,
-      ]
-    : sourceCoordinates;
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
@@ -270,8 +249,8 @@ const RouteOptimizer = () => {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400 md:text-base">
-              Configure your delivery fleet and delivery points, then generate
-              optimized multi-factor routes using A*, AHP and Google OR-Tools.
+              Generate a new run from the current eligible deliveries and
+              available persisted fleet using AHP and OR-Tools.
             </p>
           </div>
 
@@ -628,9 +607,12 @@ const RouteOptimizer = () => {
             ) : (
               <>
                 <span>⚡</span>
-                Run Multi-Factor Optimization
+                Run Saved-Fleet Optimization
               </>
             )}
+          </button>
+          <button type="button" onClick={handleManualScenario} disabled={loading} className="mt-3 w-full rounded-xl border border-white/15 px-4 py-2 text-xs text-gray-300 hover:border-cyan-400/30">
+            Run manual scenario instead (does not use saved fleet)
           </button>
         </div>
 
@@ -652,14 +634,7 @@ const RouteOptimizer = () => {
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <div className="h-125">
-              <Map
-                source={sourceCoordinates}
-                destination={destinationCoordinates}
-              />
-            </div>
-          </div>
+          {mapNotice ? <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200">{mapNotice}</div> : <Map deliveries={savedDeliveries} vehicles={savedVehicles} height="500px" />}
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -668,8 +643,7 @@ const RouteOptimizer = () => {
               </p>
 
               <p className="mt-1 text-sm font-semibold text-gray-300">
-                {vehicles.length} Vehicle
-                {vehicles.length !== 1 ? "s" : ""}
+                {savedVehicles.length} eligible saved vehicle{savedVehicles.length !== 1 ? "s" : ""}
               </p>
             </div>
 
@@ -679,8 +653,7 @@ const RouteOptimizer = () => {
               </p>
 
               <p className="mt-1 text-sm font-semibold text-gray-300">
-                {deliveries.length} Point
-                {deliveries.length !== 1 ? "s" : ""}
+                {savedDeliveries.length} eligible saved {savedDeliveries.length === 1 ? 'delivery' : 'deliveries'}
               </p>
             </div>
           </div>

@@ -13,6 +13,9 @@ const Sidebar = () => {
       path: "/route-optimizer",
       icon: "↗",
     },
+    { name: 'Deliveries', path: '/deliveries', icon: '□' },
+    { name: 'Mixed Fleet', path: '/fleet', icon: '▣' },
+    { name: 'Optimization History', path: '/optimization-history', icon: '◷' },
     {
       name: "AHP Analysis",
       path: "/ahp",

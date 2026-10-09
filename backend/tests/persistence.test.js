@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const dbService = require('../src/services/dbService');
+const pythonOptimizerService = require('../src/services/pythonOptimizerService');
 
 describe('Data Persistence & Optimization History API', () => {
   beforeEach(() => {
@@ -29,7 +30,11 @@ describe('Data Persistence & Optimization History API', () => {
     const sampleRun = {
       run_id: 'test_run_123',
       created_at: new Date().toISOString(),
-      input_config: { test: true },
+      input_config: {
+        test: true,
+        deliveries: [{ delivery_id: 'D001', latitude: 21.1458, longitude: 79.0882, weight: 100, priority: 'High' }],
+        vehicles: [{ vehicle_id: 'V001', capacity: 500 }],
+      },
       ahp_weights: { distance: 0.3004 },
       realtime_source: 'live',
       realtime_timestamp: new Date().toISOString(),
@@ -59,7 +64,14 @@ describe('Data Persistence & Optimization History API', () => {
     expect(idRes.body.run_id).toBe('test_run_123');
     expect(idRes.body.realtime_source).toBe('live');
     expect(idRes.body.routes.length).toBe(1);
-    expect(idRes.body.input_config).toEqual({ test: true });
+    expect(idRes.body.input_config.test).toBe(true);
+    expect(idRes.body.result.delivery_records[0].delivery_id).toBe('D001');
+    expect(idRes.body.result.vehicle_records[0].vehicle_id).toBe('V001');
+    expect(idRes.body.result.ahp_weights.distance).toBeCloseTo(0.3004);
+    const solverSpy = jest.spyOn(pythonOptimizerService, 'runOptimization');
+    await request(app).get('/api/optimization/test_run_123');
+    expect(solverSpy).not.toHaveBeenCalled();
+    solverSpy.mockRestore();
   });
 
   it('GET /api/optimization/:id should return 404 for non-existent run ID', async () => {
@@ -81,7 +93,17 @@ describe('Data Persistence & Optimization History API', () => {
     const savedRun = dbService.getOptimizationRunById(res.body.run_id);
     expect(savedRun).not.toBeNull();
     expect(savedRun.run_id).toBe(res.body.run_id);
-    expect(savedRun.total_cost).toBeCloseTo(1.798, 2);
-    expect(savedRun.total_load).toBe(1220);
+    expect(savedRun.total_cost).toBe(res.body.total_cost);
+    expect(savedRun.total_load).toBe(res.body.total_load);
   }, 15000);
+
+  it('creates a distinct persisted run for each optimization request', async () => {
+    const first = await request(app).post('/api/optimize').send({});
+    const second = await request(app).post('/api/optimize').send({});
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body.run_id).not.toBe(first.body.run_id);
+    expect(dbService.getOptimizationRunById(first.body.run_id)).not.toBeNull();
+    expect(dbService.getOptimizationRunById(second.body.run_id)).not.toBeNull();
+  }, 30000);
 });

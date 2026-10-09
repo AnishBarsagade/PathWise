@@ -10,6 +10,9 @@ const Navbar = () => {
   const pageNames = {
     "/dashboard": "Dashboard",
     "/route-optimizer": "Route Optimizer",
+    "/deliveries": "Deliveries",
+    "/fleet": "Mixed Fleet",
+    "/optimization-history": "Optimization History",
     "/ahp": "AHP Analysis",
     "/cost-function": "Cost Function",
     "/results": "Results",

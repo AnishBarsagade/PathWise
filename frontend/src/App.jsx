@@ -15,6 +15,9 @@ import AHP from "./pages/AHP";
 import CostFunction from "./pages/CostFunction";
 import Results from "./pages/Results";
 import DynamicRerouting from "./pages/DynamicRerouting";
+import Deliveries from './pages/Deliveries';
+import Fleet from './pages/Fleet';
+import OptimizationHistory from './pages/OptimizationHistory';
 
 const App = () => {
   return (
@@ -55,6 +58,9 @@ const App = () => {
                           </ProtectedRoute>
                         }
                       />
+                      <Route path="/deliveries" element={<ProtectedRoute><Deliveries /></ProtectedRoute>} />
+                      <Route path="/fleet" element={<ProtectedRoute><Fleet /></ProtectedRoute>} />
+                      <Route path="/optimization-history" element={<ProtectedRoute><OptimizationHistory /></ProtectedRoute>} />
 
                       <Route
                         path="/ahp"

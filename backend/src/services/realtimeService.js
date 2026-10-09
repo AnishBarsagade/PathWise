@@ -17,6 +17,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 let cachedWeather = null;
 let cacheTimestamp = 0;
+let cacheExpiresAt = 0;
 
 /**
  * Fallback values used when external services are unreachable or offline
@@ -181,7 +182,7 @@ async function getRealtimeData(forceRefresh = false) {
   const now = Date.now();
 
   // Check cache validity
-  if (!forceRefresh && cachedWeather && now - cacheTimestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && cachedWeather && now < cacheExpiresAt) {
     return {
       status: 'success',
       source: cachedWeather.source === 'Open-Meteo' ? 'live' : 'fallback',
@@ -201,6 +202,7 @@ async function getRealtimeData(forceRefresh = false) {
     weatherResult = await fetchOpenMeteoWeather();
     cachedWeather = weatherResult;
     cacheTimestamp = fetchTime;
+    cacheExpiresAt = fetchTime + CACHE_TTL_MS;
   } catch (err) {
     // Graceful fallback on network/API failure
     source = 'fallback';
@@ -210,7 +212,8 @@ async function getRealtimeData(forceRefresh = false) {
     };
     // Cache the fallback briefly (2 minutes) to prevent immediate repeated failed network calls
     cachedWeather = weatherResult;
-    cacheTimestamp = fetchTime - (CACHE_TTL_MS - 2 * 60 * 1000);
+    cacheTimestamp = fetchTime;
+    cacheExpiresAt = fetchTime + 2 * 60 * 1000;
   }
 
   return {
@@ -229,6 +232,7 @@ async function getRealtimeData(forceRefresh = false) {
 function clearCache() {
   cachedWeather = null;
   cacheTimestamp = 0;
+  cacheExpiresAt = 0;
 }
 
 module.exports = {

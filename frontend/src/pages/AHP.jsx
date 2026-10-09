@@ -1,4 +1,5 @@
-import React from "react";
+import { useEffect, useState } from "react";
+import { getAhpWeights } from '../services/api';
 
 const criteria = [
   "Distance",
@@ -9,13 +10,13 @@ const criteria = [
   "Road Condition",
 ];
 
-const weights = [
-  { name: "Travel Time", value: 30 },
-  { name: "Traffic", value: 25 },
-  { name: "Distance", value: 20 },
-  { name: "Road Condition", value: 12 },
-  { name: "Fuel Cost", value: 8 },
-  { name: "Weather", value: 5 },
+const fallbackWeights = [
+  { name: "Distance", value: 30.04 },
+  { name: "Travel Time", value: 26.91 },
+  { name: "Traffic", value: 17.06 },
+  { name: "Fuel Cost", value: 11.95 },
+  { name: "Weather", value: 7.44 },
+  { name: "Road Condition", value: 6.61 },
 ];
 
 const matrix = [
@@ -28,6 +29,13 @@ const matrix = [
 ];
 
 const AHP = () => {
+  const [weights, setWeights] = useState(fallbackWeights);
+  useEffect(() => {
+    getAhpWeights().then(({ weights: configured }) => {
+      const labels = { distance: 'Distance', travel_time: 'Travel Time', traffic: 'Traffic', fuel_cost: 'Fuel Cost', weather: 'Weather', road_condition: 'Road Condition' };
+      setWeights(Object.entries(configured).map(([key, value]) => ({ name: labels[key] || key, value: Number((Number(value) * 100).toFixed(2)) })));
+    }).catch(() => {});
+  }, []);
   return (
     <div className="min-h-screen bg-[#050816] text-white">
       {/* =====================================================

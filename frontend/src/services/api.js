@@ -137,6 +137,20 @@ export async function getRealtimeData(refresh = false) {
   }
 }
 
+export async function getAhpWeights() {
+  const response = await fetch(`${API_BASE_URL}/ahp/weights`, { headers: { Accept: 'application/json' } });
+  return handleResponse(response);
+}
+
+export async function getRouteGeometries(routes) {
+  const response = await fetch(`${API_BASE_URL}/route-geometry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ routes }),
+  });
+  return handleResponse(response);
+}
+
 /**
  * Retrieves the history of past optimization runs.
  * @param {number} [limit=50]
@@ -339,10 +353,25 @@ export async function signupUser({ name, email, password }) {
 
   return await handleResponse(response);
 }
+
+async function logisticsRequest(path, { method = 'GET', body, token } = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  return handleResponse(response);
+}
+export const getDashboardStats = () => logisticsRequest('/dashboard/stats');
+export const getDeliveries = (query = '') => logisticsRequest(`/deliveries${query ? `?${query}` : ''}`);
+export const saveDelivery = (item, token, isUpdate = false) => logisticsRequest(isUpdate ? `/deliveries/${encodeURIComponent(item.delivery_id)}` : '/deliveries', { method: isUpdate ? 'PUT' : 'POST', body: item, token });
+export const removeDelivery = (id, token) => logisticsRequest(`/deliveries/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+export const getVehicles = (query = '') => logisticsRequest(`/vehicles${query ? `?${query}` : ''}`);
+export const saveVehicle = (item, token) => logisticsRequest(item.vehicle_id ? `/vehicles/${encodeURIComponent(item.vehicle_id)}` : '/vehicles', { method: item.vehicle_id ? 'PUT' : 'POST', body: item, token });
+export const removeVehicle = (id, token) => logisticsRequest(`/vehicles/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+export const loadDemoDataset = (token) => logisticsRequest('/demo/seed', { method: 'POST', token });
 export default {
   checkHealth,
   runOptimization,
   getRealtimeData,
+  getAhpWeights,
+  getRouteGeometries,
   getOptimizationHistory,
   getOptimizationById,
   getReroutingHistory,
@@ -350,4 +379,5 @@ export default {
   loginAdmin,
   getAuthMe,
   signupUser,
+  getDashboardStats, getDeliveries, saveDelivery, removeDelivery, getVehicles, saveVehicle, removeVehicle, loadDemoDataset,
 };

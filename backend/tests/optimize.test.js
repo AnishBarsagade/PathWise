@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const pythonOptimizerService = require('../src/services/pythonOptimizerService');
+const dbService = require('../src/services/dbService');
 
 describe('Optimization API (POST /api/optimize)', () => {
   // 1. Valid optimization with demo data
@@ -15,8 +16,8 @@ describe('Optimization API (POST /api/optimize)', () => {
 
     expect(Array.isArray(body.routes)).toBe(true);
     expect(body.routes.length).toBeGreaterThan(0);
-    expect(body.total_load).toBe(1220);
-    expect(body.total_cost).toBeCloseTo(1.798, 2);
+    expect(body.total_load).toBeGreaterThan(0);
+    expect(body.total_cost).toBeGreaterThan(0);
 
     // Verify properties required by specifications:
     // - all deliveries assigned
@@ -42,9 +43,26 @@ describe('Optimization API (POST /api/optimize)', () => {
       assignedDeliveries.push(...stops);
     });
 
-    expect(assignedDeliveries.length).toBe(12);
+    expect(assignedDeliveries.length).toBe(body.priority_summary.total_served);
     const uniqueDeliveries = new Set(assignedDeliveries);
-    expect(uniqueDeliveries.size).toBe(12);
+    expect(uniqueDeliveries.size).toBe(body.priority_summary.total_served);
+    expect(body.routes.reduce((sum, route) => sum + route.load, 0)).toBe(body.total_load);
+    if (body.deliveries_considered !== undefined) {
+      expect(body.deliveries_considered).toBe(body.priority_summary.total_served + body.deliveries_unserved);
+      expect(body.eligible_vehicle_ids).toHaveLength(body.eligible_vehicle_count);
+    }
+  }, 15000);
+
+  it('uses the original CSV demo only when no saved logistics records exist', async () => {
+    const dbSpy = jest.spyOn(dbService, 'getOptimizationInputFromDatabase').mockReturnValue({ deliveries: [], vehicles: [] });
+    const res = await request(app).post('/api/optimize').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.input_source).toBe('default_csv');
+    expect(res.body.deliveries_considered).toBeUndefined();
+    expect(res.body.total_load).toBe(1220);
+    expect(res.body.priority_summary.total_deliveries).toBe(12);
+    expect(res.body.ahp_weights).toEqual({ distance: 0.3004, travel_time: 0.2691, traffic: 0.1706, fuel_cost: 0.1195, weather: 0.0744, road_condition: 0.0661 });
+    dbSpy.mockRestore();
   }, 15000);
 
   // 2. Valid optimization with custom payload
@@ -72,6 +90,11 @@ describe('Optimization API (POST /api/optimize)', () => {
           capacity: 500,
           fuel_cost: 8.5,
         },
+        {
+          vehicle_id: 'V002',
+          capacity: 200,
+          fuel_cost: 8.5,
+        },
       ],
     };
 
@@ -84,6 +107,11 @@ describe('Optimization API (POST /api/optimize)', () => {
     expect(res.body.routes[0].route[res.body.routes[0].route.length - 1]).toBe('DEPOT');
     expect(res.body.routes[0].route).toContain('D001');
     expect(res.body.routes[0].route).toContain('D002');
+    expect(res.body.ahp_weights.distance).toBeCloseTo(0.3004);
+    expect(res.body.delivery_records).toHaveLength(2);
+    expect(res.body.vehicle_records).toHaveLength(2);
+    expect(res.body.eligible_vehicle_ids).toEqual(['V001', 'V002']);
+    expect(res.body.eligible_vehicle_count).toBe(2);
   }, 15000);
 
   // 3. Validation error: Missing vehicles when deliveries provided
