@@ -11,9 +11,11 @@ const {
 } = require("../controllers/historyController");
 
 const { login, signup, getMe } = require("../controllers/authController");
+const rider = require("../controllers/riderController");
 
 const validateOptimizationInput = require("../middleware/validateOptimizationInput");
 const authMiddleware = require("../middleware/authMiddleware");
+const { optionalAuthMiddleware } = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 const { rerouteRoutes } = require("../controllers/reroutingController");
 const logistics = require('../controllers/logisticsController');
@@ -28,6 +30,12 @@ router.get("/health", getHealth);
 router.post("/auth/signup", signup);
 router.post("/auth/login", login);
 router.get("/auth/me", authMiddleware, getMe);
+
+// Rider assignments
+router.get("/rider/assignments", authMiddleware, rider.getMyAssignments);
+router.get("/rider/assignments/:userId", authMiddleware, rider.getRiderAssignmentsById);
+router.post("/rider/assignments", authMiddleware, adminMiddleware, rider.assignRider);
+router.delete("/rider/assignments/:userId/:vehicleId?", authMiddleware, adminMiddleware, rider.unassignRider);
 
 // Persistent synthetic logistics data. Reads are available to the protected UI;
 // mutations require an authenticated administrator.
@@ -47,10 +55,10 @@ router.post('/demo/seed', authMiddleware, adminMiddleware, logistics.seedDemo);
 // Realtime data
 router.get("/realtime-data", getRealtimeData);
 
-// Optimization
+// Optimization (Fleet-wide optimization requires Admin authorization)
 router.get('/ahp/weights', getAhpWeights);
 router.post('/route-geometry', getRouteGeometries);
-router.post("/optimize", validateOptimizationInput, optimizeRoutes);
+router.post("/optimize", authMiddleware, adminMiddleware, validateOptimizationInput, optimizeRoutes);
 
 // Optimization history
 router.get("/optimization/history", getOptimizationHistory);
@@ -58,7 +66,6 @@ router.get("/optimization/:id", getOptimizationById);
 
 // Dynamic rerouting
 router.get("/rerouting/history", getReroutingHistory);
-router.post("/reroute", rerouteRoutes);
-
+router.post("/reroute", optionalAuthMiddleware, rerouteRoutes);
 
 module.exports = router;

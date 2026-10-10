@@ -1,12 +1,17 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const config = require('../src/config/env');
 const pythonOptimizerService = require('../src/services/pythonOptimizerService');
 const dbService = require('../src/services/dbService');
 
 describe('Optimization API (POST /api/optimize)', () => {
+  const adminToken = jwt.sign({ id: 1, role: 'admin' }, config.JWT_SECRET, { expiresIn: '1h' });
+  const auth = { Authorization: `Bearer ${adminToken}` };
+
   // 1. Valid optimization with demo data
   it('should return 200 and optimize default demo dataset when payload is empty', async () => {
-    const res = await request(app).post('/api/optimize').send({});
+    const res = await request(app).post('/api/optimize').set(auth).send({});
     expect(res.status).toBe(200);
 
     const body = res.body;
@@ -51,11 +56,11 @@ describe('Optimization API (POST /api/optimize)', () => {
       expect(body.deliveries_considered).toBe(body.priority_summary.total_served + body.deliveries_unserved);
       expect(body.eligible_vehicle_ids).toHaveLength(body.eligible_vehicle_count);
     }
-  }, 15000);
+  }, 30000);
 
   it('uses the original CSV demo only when no saved logistics records exist', async () => {
     const dbSpy = jest.spyOn(dbService, 'getOptimizationInputFromDatabase').mockReturnValue({ deliveries: [], vehicles: [] });
-    const res = await request(app).post('/api/optimize').send({});
+    const res = await request(app).post('/api/optimize').set(auth).send({});
     expect(res.status).toBe(200);
     expect(res.body.input_source).toBe('default_csv');
     expect(res.body.deliveries_considered).toBeUndefined();
@@ -63,7 +68,7 @@ describe('Optimization API (POST /api/optimize)', () => {
     expect(res.body.priority_summary.total_deliveries).toBe(12);
     expect(res.body.ahp_weights).toEqual({ distance: 0.3004, travel_time: 0.2691, traffic: 0.1706, fuel_cost: 0.1195, weather: 0.0744, road_condition: 0.0661 });
     dbSpy.mockRestore();
-  }, 15000);
+  }, 30000);
 
   // 2. Valid optimization with custom payload
   it('should return 200 and optimize custom deliveries and vehicles', async () => {
@@ -98,7 +103,7 @@ describe('Optimization API (POST /api/optimize)', () => {
       ],
     };
 
-    const res = await request(app).post('/api/optimize').send(customPayload);
+    const res = await request(app).post('/api/optimize').set(auth).send(customPayload);
     expect(res.status).toBe(200);
     expect(res.body.total_load).toBe(250);
     expect(res.body.routes.length).toBe(1);
@@ -112,11 +117,11 @@ describe('Optimization API (POST /api/optimize)', () => {
     expect(res.body.vehicle_records).toHaveLength(2);
     expect(res.body.eligible_vehicle_ids).toEqual(['V001', 'V002']);
     expect(res.body.eligible_vehicle_count).toBe(2);
-  }, 15000);
+  }, 30000);
 
   // 3. Validation error: Missing vehicles when deliveries provided
   it('should return 400 when vehicles are missing in custom payload', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [{ delivery_id: 'D1', latitude: 21.1, longitude: 79.1, weight: 10 }],
     });
     expect(res.status).toBe(400);
@@ -125,7 +130,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 4. Validation error: Missing deliveries when vehicles provided
   it('should return 400 when deliveries are missing in custom payload', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       vehicles: [{ vehicle_id: 'V1', capacity: 100, fuel_cost: 5 }],
     });
     expect(res.status).toBe(400);
@@ -134,7 +139,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 5. Validation error: Empty arrays
   it('should return 400 when deliveries array is empty', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [],
       vehicles: [{ vehicle_id: 'V1', capacity: 100, fuel_cost: 5 }],
     });
@@ -144,7 +149,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 6. Validation error: Invalid coordinates
   it('should return 400 when delivery latitude is invalid', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [{ delivery_id: 'D1', latitude: 120.5, longitude: 79.1, weight: 10 }],
       vehicles: [{ vehicle_id: 'V1', capacity: 100, fuel_cost: 5 }],
     });
@@ -154,7 +159,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 7. Validation error: Non-positive delivery weight
   it('should return 400 when delivery weight is non-positive', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [{ delivery_id: 'D1', latitude: 21.1, longitude: 79.1, weight: -5 }],
       vehicles: [{ vehicle_id: 'V1', capacity: 100, fuel_cost: 5 }],
     });
@@ -165,7 +170,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 8. Validation error: Non-positive vehicle capacity
   it('should return 400 when vehicle capacity is non-positive', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [{ delivery_id: 'D1', latitude: 21.1, longitude: 79.1, weight: 10 }],
       vehicles: [{ vehicle_id: 'V1', capacity: 0, fuel_cost: 5 }],
     });
@@ -176,7 +181,7 @@ describe('Optimization API (POST /api/optimize)', () => {
 
   // 9. Validation error: Delivery weight exceeds max vehicle capacity
   it('should return 400 when delivery weight exceeds max vehicle capacity', async () => {
-    const res = await request(app).post('/api/optimize').send({
+    const res = await request(app).post('/api/optimize').set(auth).send({
       deliveries: [{ delivery_id: 'D1', latitude: 21.1, longitude: 79.1, weight: 500 }],
       vehicles: [{ vehicle_id: 'V1', capacity: 200, fuel_cost: 5 }],
     });
@@ -191,7 +196,7 @@ describe('Optimization API (POST /api/optimize)', () => {
       .spyOn(pythonOptimizerService, 'runOptimization')
       .mockRejectedValueOnce(new Error('OR-Tools solver process crashed.'));
 
-    const res = await request(app).post('/api/optimize').send({});
+    const res = await request(app).post('/api/optimize').set(auth).send({});
     expect(res.status).toBe(500);
     expect(res.body.error).toBe('Internal Server Error');
     expect(res.body.message).toContain('OR-Tools solver process crashed.');

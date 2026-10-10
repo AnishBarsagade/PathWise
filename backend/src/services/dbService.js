@@ -96,6 +96,17 @@ function initSchema(database) {
     );
     CREATE INDEX IF NOT EXISTS idx_deliveries_filters ON deliveries(status, priority, zone);
     CREATE INDEX IF NOT EXISTS idx_vehicles_filters ON vehicles(availability, vehicle_class);
+
+    CREATE TABLE IF NOT EXISTS rider_assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      vehicle_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_rider_assignments_user ON rider_assignments(user_id);
+    CREATE INDEX IF NOT EXISTS idx_rider_assignments_vehicle ON rider_assignments(vehicle_id);
   `);
 
   // Migration for existing databases:
@@ -481,6 +492,7 @@ function clearHistory() {
   database.exec(`
     DELETE FROM rerouting_events;
     DELETE FROM optimization_runs;
+    DELETE FROM rider_assignments;
   `);
 }
 
@@ -530,14 +542,27 @@ function listVehicles({ manufacturer, vehicle_class, availability, min_capacity 
 function getVehicle(id) { return getDb().prepare('SELECT * FROM vehicles WHERE vehicle_id = ?').get(id) || null; }
 function saveVehicle(item, existing = false) {
   const now = new Date().toISOString(), database = getDb();
-  if (existing) database.prepare(`UPDATE vehicles SET manufacturer=@manufacturer, model=@model, variant=@variant, vehicle_class=@vehicle_class, fuel_type=@fuel_type, registration_identifier=@registration_identifier, configured_capacity_kg=@configured_capacity_kg, manufacturer_rated_payload_kg=@manufacturer_rated_payload_kg, availability=@availability, operational_status=@operational_status, updated_at=@updated_at WHERE vehicle_id=@vehicle_id`).run({ ...item, updated_at: now });
-  else database.prepare(`INSERT INTO vehicles (${VEHICLE_COLUMNS.join(',')},created_at,updated_at) VALUES (@vehicle_id,@manufacturer,@model,@variant,@vehicle_class,@fuel_type,@registration_identifier,@configured_capacity_kg,@manufacturer_rated_payload_kg,@availability,@operational_status,@is_demo,@created_at,@updated_at)`).run({ ...item, is_demo: item.is_demo || 0, created_at: now, updated_at: now });
+  const alreadyExists = existing && Boolean(getVehicle(item.vehicle_id));
+  const payload = {
+    variant: null,
+    fuel_type: null,
+    registration_identifier: null,
+    manufacturer_rated_payload_kg: null,
+    availability: 1,
+    operational_status: 'available',
+    is_demo: 0,
+    ...item,
+    updated_at: now,
+  };
+  if (alreadyExists) database.prepare(`UPDATE vehicles SET manufacturer=@manufacturer, model=@model, variant=@variant, vehicle_class=@vehicle_class, fuel_type=@fuel_type, registration_identifier=@registration_identifier, configured_capacity_kg=@configured_capacity_kg, manufacturer_rated_payload_kg=@manufacturer_rated_payload_kg, availability=@availability, operational_status=@operational_status, updated_at=@updated_at WHERE vehicle_id=@vehicle_id`).run(payload);
+  else database.prepare(`INSERT INTO vehicles (${VEHICLE_COLUMNS.join(',')},created_at,updated_at) VALUES (@vehicle_id,@manufacturer,@model,@variant,@vehicle_class,@fuel_type,@registration_identifier,@configured_capacity_kg,@manufacturer_rated_payload_kg,@availability,@operational_status,@is_demo,@created_at,@updated_at)`).run({ ...payload, created_at: now });
   return getVehicle(item.vehicle_id);
 }
 function deleteVehicle(id) {
   const database = getDb();
   const used = database.prepare('SELECT COUNT(*) AS count FROM deliveries WHERE assigned_vehicle_id = ?').get(id).count;
   if (used) return { deleted: false, reason: 'Vehicle has assigned deliveries.' };
+  database.prepare('DELETE FROM rider_assignments WHERE vehicle_id = ?').run(id);
   return { deleted: database.prepare('DELETE FROM vehicles WHERE vehicle_id = ?').run(id).changes > 0 };
 }
 function seedDemoData({ deliveries, vehicles }) {
@@ -558,6 +583,103 @@ function getOptimizationInputFromDatabase() {
   return { deliveries: getDb().prepare("SELECT delivery_id, recipient_name, parcel_category, weight, priority, location, zone, latitude, longitude, status, assigned_vehicle_id FROM deliveries WHERE status IN ('pending','assigned')").all(), vehicles: getDb().prepare("SELECT vehicle_id, manufacturer, model, variant, vehicle_class, configured_capacity_kg AS capacity, availability, operational_status, 10.0 AS fuel_cost FROM vehicles WHERE availability=1 AND operational_status='available'").all() };
 }
 
+/**
+ * Assign a rider to a vehicle.
+ */
+function assignRiderToVehicle(userId, vehicleId) {
+  const database = getDb();
+  // Clear any existing assignment for this user or vehicle
+  database.prepare('DELETE FROM rider_assignments WHERE user_id = ? OR vehicle_id = ?').run(userId, vehicleId);
+  database.prepare(`
+    INSERT INTO rider_assignments (user_id, vehicle_id, created_at)
+    VALUES (?, ?, ?)
+  `).run(userId, vehicleId, new Date().toISOString());
+  return getRiderAssignments(userId);
+}
+
+/**
+ * Get assignments for a given rider.
+ * Returns assigned vehicle, deliveries, and active route from latest run.
+ * If unassigned, returns an empty state object.
+ */
+function getRiderAssignments(userId) {
+  const database = getDb();
+  const assignment = database.prepare(`
+    SELECT ra.id, ra.user_id, ra.vehicle_id, ra.created_at,
+           v.manufacturer, v.model, v.variant, v.vehicle_class, v.configured_capacity_kg, v.operational_status
+    FROM rider_assignments ra
+    LEFT JOIN vehicles v ON ra.vehicle_id = v.vehicle_id
+    WHERE ra.user_id = ?
+    ORDER BY ra.created_at DESC
+    LIMIT 1
+  `).get(userId);
+
+  if (!assignment) {
+    return {
+      user_id: Number(userId),
+      vehicle: null,
+      deliveries: [],
+      routes: [],
+      message: 'No vehicle or deliveries currently assigned to this rider.',
+    };
+  }
+
+  const deliveries = database.prepare(`
+    SELECT * FROM deliveries WHERE assigned_vehicle_id = ?
+  `).all(assignment.vehicle_id);
+
+  // Retrieve assigned route from latest optimization run if available
+  const latestRun = database.prepare(`
+    SELECT run_id, routes FROM optimization_runs ORDER BY created_at DESC LIMIT 1
+  `).get();
+
+  let assignedRoute = null;
+  if (latestRun && latestRun.routes) {
+    try {
+      const parsedRoutes = JSON.parse(latestRun.routes);
+      assignedRoute = parsedRoutes.find((r) => r.vehicle_id === assignment.vehicle_id) || null;
+    } catch (_) {}
+  }
+
+  return {
+    user_id: Number(userId),
+    vehicle: {
+      vehicle_id: assignment.vehicle_id,
+      manufacturer: assignment.manufacturer,
+      model: assignment.model,
+      variant: assignment.variant,
+      vehicle_class: assignment.vehicle_class,
+      capacity: assignment.configured_capacity_kg,
+      operational_status: assignment.operational_status,
+    },
+    deliveries,
+    route: assignedRoute,
+    routes: assignedRoute ? [assignedRoute] : [],
+    run_id: latestRun ? latestRun.run_id : null,
+    message: 'Active assignments loaded.',
+  };
+}
+
+/**
+ * Find rider assigned to a vehicle.
+ */
+function getRiderByVehicleId(vehicleId) {
+  const database = getDb();
+  const row = database.prepare('SELECT user_id FROM rider_assignments WHERE vehicle_id = ? ORDER BY created_at DESC LIMIT 1').get(vehicleId);
+  return row ? row.user_id : null;
+}
+
+/**
+ * Remove rider assignment.
+ */
+function deleteRiderAssignment(userId, vehicleId) {
+  const database = getDb();
+  if (vehicleId) {
+    return database.prepare('DELETE FROM rider_assignments WHERE user_id = ? AND vehicle_id = ?').run(userId, vehicleId).changes > 0;
+  }
+  return database.prepare('DELETE FROM rider_assignments WHERE user_id = ?').run(userId).changes > 0;
+}
+
 module.exports = {
   getDb,
   dbPath,
@@ -571,6 +693,10 @@ module.exports = {
   findUserByEmail,
   findUserById,
   createUser,
+  assignRiderToVehicle,
+  getRiderAssignments,
+  getRiderByVehicleId,
+  deleteRiderAssignment,
   listDeliveries, getDelivery, saveDelivery, deleteDelivery,
   listVehicles, getVehicle, saveVehicle, deleteVehicle, seedDemoData,
   getDashboardStats, getOptimizationInputFromDatabase,

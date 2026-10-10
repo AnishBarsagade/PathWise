@@ -12,25 +12,17 @@ const dbService = require("../services/dbService");
  */
 async function signup(req, res, next) {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, confirmPassword, confirm_password } = req.body || {};
 
-    // Basic validation
-    if (!name || !email || !password) {
+    // Basic validation: email and password are required
+    if (!email || !password) {
       return res.status(400).json({
         error: "Validation Error",
-        message: "Name, email and password are required.",
+        message: "Email and password are required.",
       });
     }
 
-    const trimmedName = name.trim();
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (!trimmedName) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Name is required.",
-      });
-    }
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     if (!normalizedEmail) {
       return res.status(400).json({
@@ -39,12 +31,33 @@ async function signup(req, res, next) {
       });
     }
 
-    if (password.length < 6) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Invalid email format.",
+      });
+    }
+
+    // Validate password requirements
+    if (typeof password !== "string" || password.length < 6) {
       return res.status(400).json({
         error: "Validation Error",
         message: "Password must be at least 6 characters long.",
       });
     }
+
+    // Validate password confirmation if provided
+    const confirmation = confirmPassword !== undefined ? confirmPassword : confirm_password;
+    if (confirmation !== undefined && confirmation !== password) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Passwords do not match.",
+      });
+    }
+
+    const trimmedName = name && String(name).trim() ? String(name).trim() : normalizedEmail.split('@')[0];
 
     // Check whether the email is already registered
     const existingUser = dbService.findUserByEmail(normalizedEmail);
@@ -59,7 +72,7 @@ async function signup(req, res, next) {
     // Hash password before storing it
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Always create public signup accounts as Riders
+    // Always create public signup accounts as Riders (ignore any injected role)
     const user = dbService.createUser({
       name: trimmedName,
       email: normalizedEmail,

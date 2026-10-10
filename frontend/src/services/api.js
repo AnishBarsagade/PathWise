@@ -7,6 +7,15 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
+function getAuthHeaders(customHeaders = {}) {
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("pathwise_token") : null;
+  const headers = { ...customHeaders };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 /**
  * Helper to process fetch responses, handle status codes, and extract error details.
  * @param {Response} response - Fetch API Response object
@@ -80,14 +89,16 @@ export async function checkHealth() {
  *                                Pass empty object {} to optimize default demo datasets.
  * @returns {Promise<{ routes: Array<{ vehicle_id: string, route: string[], load: number, capacity: number, cost: number }>, total_cost: number, total_load: number }>}
  */
-export async function runOptimization(payload = {}) {
+export async function runOptimization(payload = {}, token = null) {
   try {
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(`${API_BASE_URL}/optimize`, {
       method: "POST",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+        ...authHeaders,
+      }),
       body: JSON.stringify(payload),
     });
 
@@ -310,14 +321,16 @@ export async function getAuthMe(token) {
  * @param {Object} payload - { run_id, vehicle_id, incident_type, incident_details }
  * @returns {Promise<Object>}
  */
-export async function rerouteRoute(payload) {
+export async function rerouteRoute(payload, token = null) {
   try {
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(`${API_BASE_URL}/reroute`, {
       method: "POST",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json",
         Accept: "application/json",
-      },
+        ...authHeaders,
+      }),
       body: JSON.stringify(payload),
     });
 
@@ -337,7 +350,26 @@ export async function rerouteRoute(payload) {
   }
 }
 
-export async function signupUser({ name, email, password }) {
+export async function getRiderAssignments(userId = null, token = null) {
+  try {
+    const path = userId ? `/rider/assignments/${encodeURIComponent(userId)}` : `/rider/assignments`;
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      headers: getAuthHeaders({
+        Accept: "application/json",
+        ...authHeaders,
+      }),
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+export const loginUser = loginAdmin;
+
+export async function signupUser({ name, email, password, confirmPassword }) {
   const response = await fetch(`${API_BASE_URL}/auth/signup`, {
     method: "POST",
     headers: {
@@ -348,6 +380,7 @@ export async function signupUser({ name, email, password }) {
       name,
       email,
       password,
+      confirmPassword,
     }),
   });
 
@@ -355,7 +388,8 @@ export async function signupUser({ name, email, password }) {
 }
 
 async function logisticsRequest(path, { method = 'GET', body, token } = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers: getAuthHeaders({ Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeaders }), ...(body ? { body: JSON.stringify(body) } : {}) });
   return handleResponse(response);
 }
 export const getDashboardStats = () => logisticsRequest('/dashboard/stats');
@@ -376,7 +410,9 @@ export default {
   getOptimizationById,
   getReroutingHistory,
   rerouteRoute,
+  getRiderAssignments,
   loginAdmin,
+  loginUser,
   getAuthMe,
   signupUser,
   getDashboardStats, getDeliveries, saveDelivery, removeDelivery, getVehicles, saveVehicle, removeVehicle, loadDemoDataset,
