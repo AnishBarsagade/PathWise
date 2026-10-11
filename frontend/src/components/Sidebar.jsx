@@ -1,42 +1,54 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Sidebar = () => {
-  const navigation = [
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const allNavigation = [
     {
       name: "Dashboard",
       path: "/dashboard",
       icon: "⌂",
+      adminOnly: false,
     },
     {
       name: "Route Optimizer",
       path: "/route-optimizer",
       icon: "↗",
+      adminOnly: true,
     },
-    { name: 'Deliveries', path: '/deliveries', icon: '□' },
-    { name: 'Mixed Fleet', path: '/fleet', icon: '▣' },
-    { name: 'Optimization History', path: '/optimization-history', icon: '◷' },
+    { name: 'Deliveries', path: '/deliveries', icon: '□', adminOnly: false },
+    { name: 'Mixed Fleet', path: '/fleet', icon: '▣', adminOnly: true },
+    { name: 'Optimization History', path: '/optimization-history', icon: '◷', adminOnly: true },
     {
       name: "AHP Analysis",
       path: "/ahp",
       icon: "◈",
+      adminOnly: false,
     },
     {
       name: "Cost Function",
       path: "/cost-function",
       icon: "∑",
+      adminOnly: false,
     },
     {
       name: "Results",
       path: "/results",
       icon: "◉",
+      adminOnly: false,
     },
     {
       name: "Dynamic Rerouting",
       path: "/dynamic-rerouting",
       icon: "↻",
+      adminOnly: false,
     },
   ];
+
+  const navigation = allNavigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside className="hidden min-h-[calc(100vh-5rem)] w-64 shrink-0 border-r border-white/10 bg-[#050816] lg:block">

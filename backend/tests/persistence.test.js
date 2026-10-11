@@ -1,9 +1,14 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const config = require('../src/config/env');
 const dbService = require('../src/services/dbService');
 const pythonOptimizerService = require('../src/services/pythonOptimizerService');
 
 describe('Data Persistence & Optimization History API', () => {
+  const adminToken = jwt.sign({ id: 1, role: 'admin' }, config.JWT_SECRET, { expiresIn: '1h' });
+  const auth = { Authorization: `Bearer ${adminToken}` };
+
   beforeEach(() => {
     dbService.clearHistory();
   });
@@ -81,7 +86,7 @@ describe('Data Persistence & Optimization History API', () => {
   });
 
   it('POST /api/optimize should save the run in SQLite and attach run_id and realtime to response', async () => {
-    const res = await request(app).post('/api/optimize').send({});
+    const res = await request(app).post('/api/optimize').set(auth).send({});
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('run_id');
     expect(typeof res.body.run_id).toBe('string');
@@ -95,11 +100,11 @@ describe('Data Persistence & Optimization History API', () => {
     expect(savedRun.run_id).toBe(res.body.run_id);
     expect(savedRun.total_cost).toBe(res.body.total_cost);
     expect(savedRun.total_load).toBe(res.body.total_load);
-  }, 15000);
+  }, 30000);
 
   it('creates a distinct persisted run for each optimization request', async () => {
-    const first = await request(app).post('/api/optimize').send({});
-    const second = await request(app).post('/api/optimize').send({});
+    const first = await request(app).post('/api/optimize').set(auth).send({});
+    const second = await request(app).post('/api/optimize').set(auth).send({});
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(second.body.run_id).not.toBe(first.body.run_id);

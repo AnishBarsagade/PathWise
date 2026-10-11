@@ -53,14 +53,14 @@ const App = () => {
                       <Route
                         path="/route-optimizer"
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute requiredRole="admin">
                             <RouteOptimizer />
                           </ProtectedRoute>
                         }
                       />
                       <Route path="/deliveries" element={<ProtectedRoute><Deliveries /></ProtectedRoute>} />
-                      <Route path="/fleet" element={<ProtectedRoute><Fleet /></ProtectedRoute>} />
-                      <Route path="/optimization-history" element={<ProtectedRoute><OptimizationHistory /></ProtectedRoute>} />
+                      <Route path="/fleet" element={<ProtectedRoute requiredRole="admin"><Fleet /></ProtectedRoute>} />
+                      <Route path="/optimization-history" element={<ProtectedRoute requiredRole="admin"><OptimizationHistory /></ProtectedRoute>} />
 
                       <Route
                         path="/ahp"
