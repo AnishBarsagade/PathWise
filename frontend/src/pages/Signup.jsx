@@ -249,7 +249,7 @@ const Signup = () => {
           </div>
 
           {/* Rider Notice */}
-          <div className="mt-5 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-center text-xs text-white/40">
+          <div className="mt-5 rounded-xl border border-white/5 bg-white/2 px-4 py-3 text-center text-xs text-white/40">
             New accounts are created as Rider accounts.
           </div>
         </div>

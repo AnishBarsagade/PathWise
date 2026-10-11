@@ -48,9 +48,9 @@ const Login = () => {
       <div className="relative w-full max-w-md">
         {/* Brand */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10">
+          {/* <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10">
             <span className="text-2xl font-bold text-cyan-300">P</span>
-          </div>
+          </div> */}
 
           <h1 className="text-3xl font-bold tracking-tight text-white">
             PathWise
@@ -204,10 +204,10 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Footer note */}
+        {/* Footer note
         <p className="mt-6 text-center text-xs text-gray-600">
           PathWise Route Optimization · Admin & Rider Portal
-        </p>
+        </p> */}
       </div>
     </div>
   );

@@ -297,109 +297,30 @@ const Landing = () => {
 
           {/* Hero visual */}
           <div className="hero-visual relative">
-            <div className="floating-card relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
-              <div className="mb-5 flex items-center justify-between">
+            <div className="floating-card relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl shadow-cyan-950/30">
+              <img
+                src="https://images.unsplash.com/photo-1587813369290-091c9d432daf?q=80&w=1740&auto=format&fit=crop"
+                alt="Logistics and delivery network"
+                className="h-80 w-full object-cover sm:h-100 lg:h-115"
+              />
+
+              {/* Dark gradient overlay */}
+              <div className="absolute inset-0 bg-linear-to-t from-[#050816]/80 via-[#050816]/10 to-transparent" />
+
+              {/* Image information */}
+              <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-3 sm:bottom-7 sm:left-7 sm:right-7">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
-                    Live Route Model
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300">
+                    Intelligent Logistics
                   </p>
-                  <h3 className="mt-1 font-semibold">Delivery Network</h3>
-                </div>
 
-                <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                  Optimized
-                </div>
-              </div>
+                  <h3 className="mt-2 text-lg font-semibold text-white sm:text-2xl">
+                    Smarter Fleet Optimization
+                  </h3>
 
-              <div className="relative h-105 overflow-hidden rounded-2xl border border-white/10 bg-[#080d20]">
-                {/* Grid */}
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
-                    backgroundSize: "40px 40px",
-                  }}
-                />
-
-                {/* Route SVG */}
-                <svg
-                  className="absolute inset-0 h-full w-full"
-                  viewBox="0 0 500 420"
-                  fill="none"
-                >
-                  <path
-                    d="M70 330 C120 290, 110 180, 175 210 S250 320, 300 250 S360 110, 430 80"
-                    stroke="rgba(255,255,255,0.12)"
-                    strokeWidth="12"
-                    strokeLinecap="round"
-                  />
-
-                  <path
-                    className="route-line"
-                    d="M70 330 C120 290, 110 180, 175 210 S250 320, 300 250 S360 110, 430 80"
-                    stroke="#67e8f9"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray="1000"
-                    strokeDashoffset="0"
-                  />
-
-                  <circle
-                    className="route-node"
-                    cx="70"
-                    cy="330"
-                    r="8"
-                    fill="#67e8f9"
-                  />
-
-                  <circle
-                    className="route-node"
-                    cx="175"
-                    cy="210"
-                    r="8"
-                    fill="#67e8f9"
-                  />
-
-                  <circle
-                    className="route-node"
-                    cx="300"
-                    cy="250"
-                    r="8"
-                    fill="#67e8f9"
-                  />
-
-                  <circle
-                    className="route-node"
-                    cx="430"
-                    cy="80"
-                    r="8"
-                    fill="#67e8f9"
-                  />
-                </svg>
-
-                {/* Labels */}
-                <div className="absolute bottom-8 left-8 rounded-xl border border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                    Depot
+                  <p className="mt-1 text-sm text-gray-300">
+                    Optimizing every delivery, every route.
                   </p>
-                  <p className="font-medium">DEPOT</p>
-                </div>
-
-                <div className="absolute left-[32%] top-[39%] rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200 backdrop-blur-md">
-                  D003
-                </div>
-
-                <div className="absolute right-8 top-8 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-300 backdrop-blur-md">
-                  D008 ✓
-                </div>
-
-                <div className="absolute bottom-6 right-6 rounded-xl border border-white/10 bg-black/50 p-4 backdrop-blur-md">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                    Route Cost
-                  </p>
-                  <p className="mt-1 text-lg font-semibold">0.665</p>
                 </div>
               </div>
             </div>
@@ -705,79 +626,32 @@ const Landing = () => {
             </p>
           </div>
 
-          <div className="reveal mt-16 overflow-hidden rounded-3xl border border-white/10 bg-white/2.5 p-6">
-            <div className="relative h-72 overflow-hidden rounded-2xl bg-[#080d20]">
-              <div
-                className="absolute inset-0 opacity-20"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
-                  backgroundSize: "40px 40px",
-                }}
+          <div className="reveal mt-16 overflow-hidden rounded-3xl border border-white/10 shadow-2xl shadow-cyan-950/20">
+            <div className="relative h-[280px] sm:h-[380px] lg:h-[460px]">
+              <img
+                src="https://images.unsplash.com/photo-1634408742414-083fee1f2e64?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+                alt="Technology supporting intelligent delivery route optimization"
+                className="h-full w-full object-cover"
+                loading="lazy"
               />
 
-              <svg
-                className="absolute inset-0 h-full w-full"
-                viewBox="0 0 800 300"
-                fill="none"
-              >
-                <path
-                  d="M80 220 C200 220, 180 90, 330 100 S480 240, 700 70"
-                  stroke="rgba(255,255,255,0.12)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                />
+              {/* Dark overlay to match the PathWise theme */}
+              <div className="absolute inset-0 bg-linear-to-t from-[#050816]/90 via-[#050816]/30 to-[#050816]/10" />
 
-                <path
-                  d="M80 220 C200 220, 180 90, 330 100 S480 240, 700 70"
-                  stroke="#67e8f9"
-                  strokeWidth="3"
-                  strokeDasharray="10 10"
-                />
-
-                <path
-                  d="M330 100 C450 100, 500 180, 700 220"
-                  stroke="#a78bfa"
-                  strokeWidth="3"
-                  strokeDasharray="8 8"
-                />
-
-                <circle
-                  className="reroute-dot"
-                  cx="80"
-                  cy="220"
-                  r="7"
-                  fill="#67e8f9"
-                />
-
-                <circle cx="330" cy="100" r="8" fill="#f59e0b" />
-
-                <circle cx="700" cy="70" r="7" fill="#67e8f9" />
-
-                <circle cx="700" cy="220" r="7" fill="#a78bfa" />
-              </svg>
-
-              <div className="reroute-alert absolute left-[38%] top-[25%] rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 backdrop-blur-md">
-                <p className="text-xs font-semibold text-amber-300">
-                  Traffic detected
+              {/* Text overlay */}
+              <div className="absolute bottom-6 left-6 right-6 sm:bottom-8 sm:left-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                  Dynamic Rerouting
                 </p>
-                <p className="mt-1 text-[10px] text-gray-400">
-                  Route adjustment required
-                </p>
-              </div>
 
-              <div className="absolute bottom-5 left-5 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 backdrop-blur-md">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                  Original
-                </p>
-                <p className="text-sm text-cyan-300">Route A</p>
-              </div>
+                <h3 className="mt-3 max-w-xl text-2xl font-bold text-white sm:text-3xl">
+                  Smarter Routes. Faster Deliveries.
+                </h3>
 
-              <div className="absolute bottom-5 right-5 rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 py-3 backdrop-blur-md">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                  Updated
+                <p className="mt-3 max-w-lg text-sm leading-6 text-gray-300 sm:text-base">
+                  Adapt delivery routes to changing traffic, weather, and road
+                  conditions with intelligent route optimization.
                 </p>
-                <p className="text-sm text-purple-300">Route B</p>
               </div>
             </div>
           </div>

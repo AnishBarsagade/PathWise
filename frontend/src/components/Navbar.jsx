@@ -48,8 +48,6 @@ const Navbar = () => {
 
         {/* Current page */}
         <div className="hidden items-center gap-3 md:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-
           <span className="text-sm text-gray-400">{currentPage}</span>
         </div>
 
