@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathWise — Project Analysis &amp; Feature Proposal Report</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1e293b; background: #fff; line-height: 1.65;
+      padding: 0; margin: 0;
+    }
+
+    /* ── Print ──────────────────────────────────────────────── */
+    @media print {
+      body { padding: 0; font-size: 11pt; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      section { page-break-inside: avoid; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      .cover { min-height: 100vh; }
+    }
+    @page { margin: 18mm 15mm; size: A4; }
+
+    /* ── Cover Page ─────────────────────────────────────────── */
+    .cover {
+      min-height: 100vh; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; text-align: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f766e 100%);
+      color: #fff; padding: 60px 40px; position: relative; overflow: hidden;
+    }
+    .cover::before {
+      content: ''; position: absolute; top: -200px; right: -200px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: rgba(6,182,212,0.08); pointer-events: none;
+    }
+    .cover::after {
+      content: ''; position: absolute; bottom: -150px; left: -150px;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: rgba(16,185,129,0.06); pointer-events: none;
+    }
+    .cover .logo { font-size: 3.8rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 8px; }
+    .cover .logo span { color: #06b6d4; }
+    .cover .subtitle { font-size: 1.35rem; color: #94a3b8; font-weight: 300; margin-bottom: 40px; }
+    .cover .doc-title {
+      font-size: 2rem; font-weight: 700; color: #e2e8f0;
+      border-top: 2px solid rgba(6,182,212,0.4); border-bottom: 2px solid rgba(6,182,212,0.4);
+      padding: 18px 0; margin-bottom: 50px; max-width: 600px;
+    }
+    .cover .meta { color: #64748b; font-size: 0.95rem; line-height: 2; }
+    .cover .meta strong { color: #cbd5e1; }
+
+    /* ── Content Container ──────────────────────────────────── */
+    .content { max-width: 820px; margin: 0 auto; padding: 50px 40px; }
+
+    /* ── Typography ─────────────────────────────────────────── */
+    h1 { font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 40px 0 10px; letter-spacing: -0.5px; }
+    h1 .num { color: #0891b2; margin-right: 8px; }
+    h2 { font-size: 1.35rem; font-weight: 700; color: #1e293b; margin: 32px 0 8px; }
+    h2 .num { color: #0891b2; margin-right: 6px; }
+    h3 { font-size: 1.1rem; font-weight: 600; color: #334155; margin: 24px 0 6px; }
+    p { margin-bottom: 12px; color: #475569; }
+    ul, ol { margin: 8px 0 16px 22px; color: #475569; }
+    li { margin-bottom: 5px; }
+    strong { color: #1e293b; }
+
+    /* ── Section divider ────────────────────────────────────── */
+    .section-divider {
+      border: none; height: 3px; margin: 40px 0;
+      background: linear-gradient(90deg, #06b6d4, #10b981, transparent);
+    }
+
+    /* ── Tables ─────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 0.92rem; }
+    thead th {
+      background: #0f172a; color: #e2e8f0; padding: 10px 14px;
+      text-align: left; font-weight: 600; font-size: 0.82rem;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    thead th:first-child { border-radius: 8px 0 0 0; }
+    thead th:last-child { border-radius: 0 8px 0 0; }
+    tbody td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody tr:hover { background: #f1f5f9; }
+
+    /* ── Feature Cards ──────────────────────────────────────── */
+    .feature-card {
+      border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 22px 24px; margin: 20px 0;
+      background: #fff; position: relative;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .feature-card.high { border-left: 5px solid #ef4444; }
+    .feature-card.medium { border-left: 5px solid #f59e0b; }
+    .feature-card.polish { border-left: 5px solid #22c55e; }
+    .feature-card .badge {
+      display: inline-block; font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+    }
+    .feature-card.high .badge { background: #fef2f2; color: #dc2626; }
+    .feature-card.medium .badge { background: #fffbeb; color: #d97706; }
+    .feature-card.polish .badge { background: #f0fdf4; color: #16a34a; }
+    .feature-card h3 { margin-top: 0; color: #0f172a; font-size: 1.15rem; }
+    .feature-card .meta-row {
+      display: flex; gap: 20px; margin: 12px 0 0;
+      font-size: 0.85rem; color: #64748b;
+    }
+    .feature-card .meta-row span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Callout ─────────────────────────────────────────────── */
+    .callout {
+      border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+      font-size: 0.92rem;
+    }
+    .callout.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .callout.warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .callout.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .callout .callout-title { font-weight: 700; margin-bottom: 4px; }
+
+    /* ── Flow Diagram (CSS only) ────────────────────────────── */
+    .flow-diagram {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 0; margin: 24px 0; align-items: center;
+    }
+    .flow-step {
+      background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px;
+      padding: 10px 16px; font-size: 0.85rem; font-weight: 600;
+      color: #334155; text-align: center; min-width: 120px;
+    }
+    .flow-step.algo { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+    .flow-step.result { background: #ecfdf5; border-color: #86efac; color: #166534; }
+    .flow-arrow { font-size: 1.3rem; color: #94a3b8; padding: 0 6px; }
+
+    /* ── TOC ─────────────────────────────────────────────────── */
+    .toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px 30px; margin: 30px 0; }
+    .toc h2 { margin-top: 0; color: #0891b2; }
+    .toc ol { counter-reset: toc-counter; list-style: none; margin: 12px 0 0; padding: 0; }
+    .toc ol li { counter-increment: toc-counter; padding: 6px 0; border-bottom: 1px dotted #e2e8f0; font-size: 0.95rem; }
+    .toc ol li:last-child { border-bottom: none; }
+    .toc ol li::before {
+      content: counter(toc-counter) "."; font-weight: 700;
+      color: #0891b2; margin-right: 10px; min-width: 24px; display: inline-block;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    .footer {
+      text-align: center; padding: 30px 20px; color: #94a3b8;
+      font-size: 0.82rem; border-top: 1px solid #e2e8f0; margin-top: 60px;
+    }
+
+    /* ── Print button ────────────────────────────────────────── */
+    .print-btn {
+      position: fixed; bottom: 30px; right: 30px; z-index: 1000;
+      background: #0891b2; color: #fff; border: none; border-radius: 50px;
+      padding: 14px 28px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(8,145,178,0.35);
+      transition: all 0.2s;
+    }
+    .print-btn:hover { background: #0e7490; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(8,145,178,0.45); }
+  </style>
+</head>
+<body>
+
+<!-- ▸▸▸ PRINT BUTTON ▸▸▸ -->
+<button class="print-btn no-print" onclick="window.print()">📄 Save as PDF</button>
+
+<!-- ════════════════════════════════════════════════════════════
+     COVER PAGE
+     ════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="logo">Path<span>Wise</span></div>
+  <div class="subtitle">Multi-Factor Delivery Route Optimization System</div>
+  <div class="doc-title">Project Analysis &amp; Proposed Feature Report</div>
+  <div class="meta">
+    <strong>Project Type:</strong> College Major Project<br/>
+    <strong>Domain:</strong> Logistics &amp; Vehicle Routing Optimization<br/>
+    <strong>Technology:</strong> React · Express · Python · OR-Tools · SQLite<br/>
+    <strong>Date:</strong> October 2026<br/>
+    <strong>Prepared by:</strong> PathWise Development Team
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+     ════════════════════════════════════════════════════════════ -->
+<div class="content">
+
+  <div class="toc page-break">
+    <h2>Table of Contents</h2>
+    <ol>
+      <li>Executive Summary</li>
+      <li>Current System Overview</li>
+      <li>Technology Stack</li>
+      <li>Existing Features Inventory</li>
+      <li>System Architecture &amp; Data Flow</li>
+      <li>Algorithm Analysis</li>
+      <li>Database Schema</li>
+      <li>Identified Gaps &amp; Weaknesses</li>
+      <li>Proposed Features — High Priority</li>
+      <li>Proposed Features — Medium Priority</li>
+      <li>Proposed Features — Polish &amp; Enhancements</li>
+      <li>Implementation Roadmap</li>
+      <li>Effort Estimation Matrix</li>
+      <li>Conclusion</li>
+    </ol>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider" />
+  <h1><span class="num">1.</span> Executive Summary</h1>
+  <p>
+    <strong>PathWise</strong> is a full-stack web application designed to optimize last-mile delivery logistics
+    for the city of Nagpur. The system combines four algorithmic components — A* pathfinding,
+    Analytic Hierarchy Process (AHP), a multi-factor cost function, and Google OR-Tools' Capacitated
+    Vehicle Routing Problem (CVRP) solver — to generate cost-optimized delivery routes for a mixed
+    fleet of vehicles.
+  </p>
+  <p>
+    This report documents the <strong>complete analysis</strong> of the existing PathWise codebase and presents
+    <strong>15 proposed features and enhancements</strong> organized by implementation priority. Each proposal
+    includes a description, technical rationale, affected components, and estimated effort. A phased
+    implementation roadmap is provided for a structured 8-week development cycle.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">📌 Key Finding</div>
+    The project has a strong algorithmic foundation and well-structured backend, but lacks data
+    visualizations, real-time interactivity, and rider-facing workflow completion — areas that
+    would significantly elevate the project for academic evaluation and demonstration.
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">2.</span> Current System Overview</h1>
+  <p>
+    PathWise provides a complete logistics dispatch workflow:
+  </p>
+  <ol>
+    <li><strong>Data Entry:</strong> Admin creates delivery orders and registers fleet vehicles in the database.</li>
+    <li><strong>Optimization:</strong> The system runs a multi-factor VRP optimization considering 6 weighted factors.</li>
+    <li><strong>Visualization:</strong> Optimized routes are displayed on an interactive Leaflet map with stop sequences.</li>
+    <li><strong>Rerouting:</strong> Dynamic scenario-based rerouting handles real-world incidents (road closures, traffic, weather, accidents).</li>
+    <li><strong>History:</strong> All optimization runs and rerouting events are persisted in SQLite for audit and comparison.</li>
+  </ol>
+
+  <h2>System Data Flow</h2>
+  <div class="flow-diagram">
+    <div class="flow-step">📦 Input Data</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">⚙️ Preprocessing</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step algo">🧭 A* Routes</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step algo">⚖️ AHP Weights</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step algo">💰 Cost Function</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step algo">🚚 OR-Tools VRP</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step result">🗺️ Optimized Routes</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step result">🔄 Dynamic Rerouting</div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">3.</span> Technology Stack</h1>
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Version</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Frontend Framework</strong></td><td>React</td><td>19.2.8</td></tr>
+      <tr><td><strong>Build Tool</strong></td><td>Vite</td><td>8.2.2</td></tr>
+      <tr><td><strong>CSS Framework</strong></td><td>Tailwind CSS</td><td>4.3.3</td></tr>
+      <tr><td><strong>Routing</strong></td><td>React Router DOM</td><td>7.18.3</td></tr>
+      <tr><td><strong>Maps</strong></td><td>Leaflet + React-Leaflet</td><td>1.9.4 / 5.0.0</td></tr>
+      <tr><td><strong>Animations</strong></td><td>GSAP</td><td>3.15.0</td></tr>
+      <tr><td><strong>Backend Framework</strong></td><td>Express.js</td><td>4.21.2</td></tr>
+      <tr><td><strong>Database</strong></td><td>SQLite (better-sqlite3)</td><td>13.0.3</td></tr>
+      <tr><td><strong>Authentication</strong></td><td>JWT + bcrypt</td><td>9.0.3 / 6.0.0</td></tr>
+      <tr><td><strong>Algorithm Engine</strong></td><td>Python + Google OR-Tools</td><td>3.11+</td></tr>
+      <tr><td><strong>Data Processing</strong></td><td>Pandas</td><td>—</td></tr>
+      <tr><td><strong>Weather API</strong></td><td>Open-Meteo (free, no key)</td><td>—</td></tr>
+      <tr><td><strong>Road Geometry</strong></td><td>OSRM (Project-OSRM.org)</td><td>—</td></tr>
+      <tr><td><strong>Testing</strong></td><td>Jest + Supertest</td><td>29.7 / 7.0</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">4.</span> Existing Features Inventory</h1>
+
+  <h2><span class="num">4.1</span> Frontend Pages</h2>
+  <table>
+    <thead>
+      <tr><th>Page</th><th>Route</th><th>Access Level</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Landing Page</td><td><code>/</code></td><td>Public</td><td>Marketing / hero landing page with GSAP animations</td></tr>
+      <tr><td>Login</td><td><code>/login</code></td><td>Public</td><td>JWT-based email + password authentication</td></tr>
+      <tr><td>Signup</td><td><code>/signup</code></td><td>Public</td><td>New user registration (defaults to Rider role)</td></tr>
+      <tr><td>Dashboard</td><td><code>/dashboard</code></td><td>Authenticated</td><td>Operations overview with delivery/fleet statistics</td></tr>
+      <tr><td>Route Optimizer</td><td><code>/route-optimizer</code></td><td>Admin</td><td>Fleet-wide optimization trigger with map preview</td></tr>
+      <tr><td>Results</td><td><code>/results</code></td><td>Authenticated</td><td>Optimized route display with stop sequences and cost breakdown</td></tr>
+      <tr><td>AHP Weights</td><td><code>/ahp</code></td><td>Authenticated</td><td>AHP weight display and factor explanation</td></tr>
+      <tr><td>Cost Function</td><td><code>/cost-function</code></td><td>Authenticated</td><td>Multi-factor cost function demonstration</td></tr>
+      <tr><td>Deliveries</td><td><code>/deliveries</code></td><td>Authenticated</td><td>CRUD management for delivery orders</td></tr>
+      <tr><td>Fleet</td><td><code>/fleet</code></td><td>Admin</td><td>Vehicle fleet management with availability tracking</td></tr>
+      <tr><td>Optimization History</td><td><code>/optimization-history</code></td><td>Admin</td><td>Past optimization runs with cost/load comparison</td></tr>
+      <tr><td>Dynamic Rerouting</td><td><code>/dynamic-rerouting</code></td><td>Authenticated</td><td>Incident-based route recalculation for individual vehicles</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">4.2</span> Backend API Endpoints (25+)</h2>
+  <table>
+    <thead>
+      <tr><th>Category</th><th>Method</th><th>Endpoint</th><th>Auth</th></tr>
+    </thead>
+    <tbody>
+      <tr><td rowspan="1">Health</td><td>GET</td><td><code>/api/health</code></td><td>—</td></tr>
+      <tr><td rowspan="3">Authentication</td><td>POST</td><td><code>/api/auth/signup</code></td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/login</code></td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/api/auth/me</code></td><td>JWT</td></tr>
+      <tr><td rowspan="5">Deliveries</td><td>GET</td><td><code>/api/deliveries</code></td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/api/deliveries/:id</code></td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/api/deliveries</code></td><td>Admin</td></tr>
+      <tr><td>PUT</td><td><code>/api/deliveries/:id</code></td><td>Admin</td></tr>
+      <tr><td>DELETE</td><td><code>/api/deliveries/:id</code></td><td>Admin</td></tr>
+      <tr><td rowspan="5">Vehicles</td><td>GET</td><td><code>/api/vehicles</code></td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/api/vehicles/:id</code></td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/api/vehicles</code></td><td>Admin</td></tr>
+      <tr><td>PUT</td><td><code>/api/vehicles/:id</code></td><td>Admin</td></tr>
+      <tr><td>DELETE</td><td><code>/api/vehicles/:id</code></td><td>Admin</td></tr>
+      <tr><td rowspan="3">Optimization</td><td>POST</td><td><code>/api/optimize</code></td><td>Admin</td></tr>
+      <tr><td>GET</td><td><code>/api/ahp/weights</code></td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/api/route-geometry</code></td><td>—</td></tr>
+      <tr><td rowspan="2">History</td><td>GET</td><td><code>/api/optimization/history</code></td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/api/optimization/:id</code></td><td>—</td></tr>
+      <tr><td rowspan="2">Rerouting</td><td>POST</td><td><code>/api/reroute</code></td><td>Optional</td></tr>
+      <tr><td>GET</td><td><code>/api/rerouting/history</code></td><td>—</td></tr>
+      <tr><td rowspan="4">Rider</td><td>GET</td><td><code>/api/rider/assignments</code></td><td>JWT</td></tr>
+      <tr><td>GET</td><td><code>/api/rider/assignments/:userId</code></td><td>JWT</td></tr>
+      <tr><td>POST</td><td><code>/api/rider/assignments</code></td><td>Admin</td></tr>
+      <tr><td>DELETE</td><td><code>/api/rider/assignments/:userId/:vehicleId?</code></td><td>Admin</td></tr>
+      <tr><td>Dashboard</td><td>GET</td><td><code>/api/dashboard/stats</code></td><td>—</td></tr>
+      <tr><td>Demo</td><td>POST</td><td><code>/api/demo/seed</code></td><td>Admin</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">4.3</span> Additional Existing Capabilities</h2>
+  <ul>
+    <li><strong>Role-Based Access Control</strong> — Admin and Rider roles with protected routes</li>
+    <li><strong>Seeded Admin Account</strong> — Default admin@pathwise.com is created on first run</li>
+    <li><strong>Leaflet Map Integration</strong> — Interactive maps with delivery markers and route lines</li>
+    <li><strong>OSRM Road Geometry</strong> — Real road paths fetched from OSRM for route visualization</li>
+    <li><strong>Live Weather Data</strong> — Open-Meteo API with 10-minute in-memory caching and graceful fallback</li>
+    <li><strong>Dynamic Rerouting Engine</strong> — Handles 5 incident types: Road Closure, Traffic Congestion, Accident, Weather, Road Condition</li>
+    <li><strong>Priority-Based Scheduling</strong> — High/Medium/Low delivery priorities with OR-Tools disjunction penalties</li>
+    <li><strong>Demo Dataset Seeding</strong> — 100 synthetic Nagpur deliveries + 20 mixed-fleet vehicles</li>
+    <li><strong>Comprehensive Test Suite</strong> — 9 backend test files covering auth, health, logistics, optimization, rerouting, persistence, and route geometry</li>
+  </ul>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">5.</span> System Architecture &amp; Data Flow</h1>
+  <p>The system follows a three-tier architecture with Python subprocess integration for algorithmic computation:</p>
+
+  <table>
+    <thead><tr><th>Component</th><th>Technology</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Presentation Layer</strong></td><td>React + Vite + Tailwind</td><td>User interface, maps, form validation, route visualization</td></tr>
+      <tr><td><strong>Application Layer</strong></td><td>Express.js + Node.js</td><td>REST API, authentication, business logic, data validation</td></tr>
+      <tr><td><strong>Algorithm Layer</strong></td><td>Python + OR-Tools</td><td>AHP weight calculation, cost function, VRP optimization</td></tr>
+      <tr><td><strong>Data Layer</strong></td><td>SQLite (WAL mode)</td><td>Persistent storage for users, deliveries, vehicles, runs, events</td></tr>
+      <tr><td><strong>External Services</strong></td><td>Open-Meteo + OSRM</td><td>Live weather data, road geometry for map routes</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Communication pattern:</strong> Frontend → Express REST API → Python subprocess (stdin/stdout JSON) → SQLite persistence → Express response → Frontend render.</p>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">6.</span> Algorithm Analysis</h1>
+
+  <h2><span class="num">6.1</span> A* Pathfinding Algorithm</h2>
+  <table>
+    <thead><tr><th>Attribute</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>File</td><td><code>algorithms/astar/astar.py</code></td></tr>
+      <tr><td>Type</td><td>Graph-based shortest path with heuristic</td></tr>
+      <tr><td>Data Structure</td><td>Min-heap priority queue (heapq)</td></tr>
+      <tr><td>Status</td><td>⚠️ Standalone demo — not integrated into VRP pipeline</td></tr>
+      <tr><td>Current Use</td><td>Hardcoded test graph (A→E, 5 nodes)</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">6.2</span> Analytic Hierarchy Process (AHP)</h2>
+  <table>
+    <thead><tr><th>Attribute</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>File</td><td><code>algorithms/ahp/ahp.py</code></td></tr>
+      <tr><td>Criteria</td><td>Distance, Travel Time, Traffic, Fuel Cost, Weather, Road Condition</td></tr>
+      <tr><td>Scale</td><td>Saaty 1–9 pairwise comparison</td></tr>
+      <tr><td>Consistency Check</td><td>CR = CI / RI (RI = 1.24 for 6×6 matrix)</td></tr>
+      <tr><td>Output Weights</td><td>Distance: 30.04%, Travel Time: 26.91%, Traffic: 17.06%, Fuel Cost: 11.95%, Weather: 7.44%, Road Condition: 6.61%</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">6.3</span> Multi-Factor Cost Function</h2>
+  <table>
+    <thead><tr><th>Attribute</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>File</td><td><code>algorithms/cost_function/cost_function.py</code></td></tr>
+      <tr><td>Normalization</td><td>Min-Max linear scaling to [0.0, 1.0]</td></tr>
+      <tr><td>Formula</td><td><em>Cost = Σ (W<sub>i</sub> × N<sub>i</sub>)</em> where W = AHP weights, N = normalized factors</td></tr>
+      <tr><td>Output Range</td><td>[0.0, 1.0] — lower is better</td></tr>
+      <tr><td>Integration</td><td>Used by VRP solver to build OR-Tools integer cost matrix (×1000 scale)</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">6.4</span> VRP Solver (OR-Tools CVRP)</h2>
+  <table>
+    <thead><tr><th>Attribute</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>File</td><td><code>algorithms/vrp/vrp_solver.py</code></td></tr>
+      <tr><td>Problem Type</td><td>Capacitated Vehicle Routing Problem (CVRP)</td></tr>
+      <tr><td>Distance</td><td>Haversine formula (great-circle distance)</td></tr>
+      <tr><td>Strategy</td><td>PATH_CHEAPEST_ARC first solution heuristic</td></tr>
+      <tr><td>Constraints</td><td>Vehicle capacity, delivery priority disjunctions</td></tr>
+      <tr><td>Priority Penalties</td><td>High: 1,000,000 · Medium: 100,000 · Low: 20,000</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">7.</span> Database Schema</h1>
+  <table>
+    <thead><tr><th>Table</th><th>Primary Key</th><th>Key Columns</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><strong>users</strong></td><td>id (auto)</td><td>name, email, password_hash, role</td><td>Authentication &amp; authorization</td></tr>
+      <tr><td><strong>vehicles</strong></td><td>vehicle_id</td><td>manufacturer, model, vehicle_class, capacity, availability, status</td><td>Fleet management</td></tr>
+      <tr><td><strong>deliveries</strong></td><td>delivery_id</td><td>recipient, weight, priority, zone, lat/lng, status, assigned_vehicle</td><td>Order management</td></tr>
+      <tr><td><strong>optimization_runs</strong></td><td>run_id</td><td>input_config, ahp_weights, realtime_data, routes, total_cost</td><td>Optimization history</td></tr>
+      <tr><td><strong>rerouting_events</strong></td><td>event_id</td><td>run_id (FK), vehicle_id, incident_type, original/rerouted routes, metrics</td><td>Rerouting audit log</td></tr>
+      <tr><td><strong>rider_assignments</strong></td><td>id (auto)</td><td>user_id (FK), vehicle_id (FK)</td><td>Rider-to-vehicle mapping</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">8.</span> Identified Gaps &amp; Weaknesses</h1>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Gap</th><th>Severity</th><th>Details</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>A* algorithm not integrated</td><td>🔴 High</td><td>Exists as standalone demo with hardcoded graph. Not connected to VRP pipeline despite being shown in the README flow.</td></tr>
+      <tr><td>2</td><td>Static traffic data</td><td>🔴 High</td><td>Traffic score is hardcoded to 3.0 for all routes. The "Traffic" factor in AHP is effectively a constant.</td></tr>
+      <tr><td>3</td><td>No data visualizations</td><td>🔴 High</td><td>Dashboard and Results pages show only raw numbers. No charts, graphs, or trend visualizations.</td></tr>
+      <tr><td>4</td><td>No time window constraints</td><td>🟡 Medium</td><td>Deliveries have no time-based constraints (e.g., "deliver between 10 AM–2 PM"). Solver is CVRP, not VRPTW.</td></tr>
+      <tr><td>5</td><td>No real-time GPS tracking</td><td>🟡 Medium</td><td>No WebSocket or SSE for live vehicle position tracking on the map.</td></tr>
+      <tr><td>6</td><td>No export functionality</td><td>🟡 Medium</td><td>Results cannot be exported as PDF or CSV for offline use or submissions.</td></tr>
+      <tr><td>7</td><td>No notification system</td><td>🟡 Medium</td><td>No in-app or email alerts when optimization completes or incidents are reported.</td></tr>
+      <tr><td>8</td><td>No delivery status workflow</td><td>🟡 Medium</td><td>Riders cannot mark deliveries as completed, failed, or in-progress.</td></tr>
+      <tr><td>9</td><td>Single depot only</td><td>🟢 Low</td><td>Depot is hardcoded to a single Nagpur coordinate (21.1450, 79.0880).</td></tr>
+      <tr><td>10</td><td>No run comparison</td><td>🟢 Low</td><td>Cannot compare two optimization runs side-by-side to evaluate different scenarios.</td></tr>
+      <tr><td>11</td><td>Dark-only theme</td><td>🟢 Low</td><td>Frontend has no light mode / theme toggle option.</td></tr>
+      <tr><td>12</td><td>Compressed source code</td><td>🟢 Low</td><td>Dashboard.jsx is compressed into ~14 lines making it difficult to read and maintain.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">9.</span> Proposed Features — 🔴 High Priority</h1>
+  <p>These features deliver the highest academic value and visual impact for project evaluation.</p>
+
+  <!-- Feature 1 -->
+  <div class="feature-card high">
+    <span class="badge">High Priority</span>
+    <h3>Feature 1: Interactive Analytics Dashboard with Charts</h3>
+    <p>
+      Add rich data visualizations using a charting library (Recharts or Chart.js):
+    </p>
+    <ul>
+      <li><strong>Bar chart</strong> — Deliveries by zone distribution</li>
+      <li><strong>Pie chart</strong> — Vehicle utilization breakdown by class</li>
+      <li><strong>Line chart</strong> — Total cost trend across optimization runs over time</li>
+      <li><strong>Donut chart</strong> — Priority distribution (High / Medium / Low)</li>
+      <li><strong>Horizontal bar</strong> — Per-vehicle load vs. capacity comparison</li>
+    </ul>
+    <p><strong>Technical rationale:</strong> Currently the Dashboard and Results pages display only raw numeric values. Charts transform data into instantly comprehensible visual narratives, which is critical for college project presentations and reports.</p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> Dashboard.jsx, Results.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 3–4 days</span>
+      <span>📦 <strong>New dependency:</strong> recharts</span>
+    </div>
+  </div>
+
+  <!-- Feature 2 -->
+  <div class="feature-card high">
+    <span class="badge">High Priority</span>
+    <h3>Feature 2: Time Window Constraints (VRPTW Upgrade)</h3>
+    <p>
+      Upgrade the optimization engine from CVRP (Capacitated VRP) to <strong>CVRPTW</strong> (VRP with Time Windows):
+    </p>
+    <ul>
+      <li>Add <code>earliest_time</code> and <code>latest_time</code> fields to the deliveries table and UI form</li>
+      <li>Add a "Time" dimension to the OR-Tools routing model with <code>AddDimension()</code></li>
+      <li>Apply <code>CumulVar</code> constraints for each delivery node's time window</li>
+      <li>Update the cost function to incorporate time-based penalties</li>
+    </ul>
+    <p><strong>Technical rationale:</strong> Time windows are a fundamental real-world logistics constraint. This upgrade demonstrates deep understanding of combinatorial optimization and is a significant algorithmic differentiator for academic projects.</p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> vrp_solver.py, deliveries schema, RouteOptimizer.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 5–7 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 3 -->
+  <div class="feature-card high">
+    <span class="badge">High Priority</span>
+    <h3>Feature 3: Integrate A* into the VRP Pipeline</h3>
+    <p>
+      Replace the Haversine straight-line distance calculation with actual road-network shortest paths using the A* algorithm:
+    </p>
+    <ul>
+      <li>Build a road graph for Nagpur from OSRM or OpenStreetMap data</li>
+      <li>Use the existing A* implementation with a proper haversine heuristic</li>
+      <li>Generate A*-based distance and travel time matrices as input to the VRP solver</li>
+      <li>Cache computed paths for repeated node pairs</li>
+    </ul>
+    <p><strong>Technical rationale:</strong> The README flow diagram shows A* as a step in the pipeline, but it currently runs as a standalone demo only. Integrating it makes the project's documented architecture actually accurate.</p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> astar.py, vrp_solver.py</span>
+      <span>⏱️ <strong>Effort:</strong> 4–5 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 4 -->
+  <div class="feature-card high">
+    <span class="badge">High Priority</span>
+    <h3>Feature 4: Rider Mobile View with Delivery Status Updates</h3>
+    <p>
+      Create a dedicated rider-facing interface for delivery execution:
+    </p>
+    <ul>
+      <li>Mobile-optimized route view showing assigned deliveries on a map</li>
+      <li>Status buttons: ✅ Completed · ❌ Failed · 🔄 Attempted</li>
+      <li>New API endpoint: <code>PATCH /api/deliveries/:id/status</code></li>
+      <li>Automatic progress tracking with percentage completion bar</li>
+      <li>One-click reroute trigger from the rider's own vehicle</li>
+    </ul>
+    <p><strong>Technical rationale:</strong> Closes the delivery workflow loop. Currently riders have no way to update delivery status, making the system incomplete as an end-to-end logistics solution.</p>
+    <div class="meta-row">
+      <span>📁 <strong>New:</strong> RiderDashboard.jsx, new API endpoints</span>
+      <span>⏱️ <strong>Effort:</strong> 4–5 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 5 -->
+  <div class="feature-card high">
+    <span class="badge">High Priority</span>
+    <h3>Feature 5: Live Traffic Data Integration</h3>
+    <p>
+      Replace the hardcoded traffic score (3.0) with real traffic data:
+    </p>
+    <ul>
+      <li>Integrate TomTom Traffic Flow API (free tier: 2,500 requests/day) or HERE Routing API</li>
+      <li>Fetch traffic congestion levels between delivery coordinate pairs</li>
+      <li>Map API response to the existing 1–5 traffic score scale</li>
+      <li>Display live traffic conditions on the map overlay</li>
+    </ul>
+    <p><strong>Technical rationale:</strong> The AHP cost function assigns 17.06% weight to "Traffic", but it's currently a static constant. Real traffic data makes this factor dynamic and meaningful.</p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> realtimeService.js, vrp_solver.py</span>
+      <span>⏱️ <strong>Effort:</strong> 3–4 days</span>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">10.</span> Proposed Features — 🟡 Medium Priority</h1>
+
+  <!-- Feature 6 -->
+  <div class="feature-card medium">
+    <span class="badge">Medium Priority</span>
+    <h3>Feature 6: Optimization Run Comparison View</h3>
+    <p>
+      Side-by-side comparison of two optimization runs showing route differences highlighted on the map, cost/load/vehicle count comparison bars, and a detailed delta analysis table.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>New:</strong> CompareRuns.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 3–4 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 7 -->
+  <div class="feature-card medium">
+    <span class="badge">Medium Priority</span>
+    <h3>Feature 7: PDF &amp; CSV Report Export</h3>
+    <p>
+      Add "Export as PDF" and "Download CSV" buttons on Results and History pages. Generate printable reports with routes, maps, costs, and AHP weights. Use <code>html2canvas</code> + <code>jsPDF</code> for PDF and built-in CSV generation for data export.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> Results.jsx, OptimizationHistory.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 2–3 days</span>
+      <span>📦 <strong>Dependencies:</strong> jspdf, html2canvas</span>
+    </div>
+  </div>
+
+  <!-- Feature 8 -->
+  <div class="feature-card medium">
+    <span class="badge">Medium Priority</span>
+    <h3>Feature 8: Real-Time Vehicle Tracking (WebSocket)</h3>
+    <p>
+      Add Socket.io WebSocket server for live GPS tracking. Rider app sends coordinates every 30 seconds. Admin dashboard shows live vehicle positions with movement trails and ETAs.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> server.js, Map.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 4–5 days</span>
+      <span>📦 <strong>Dependencies:</strong> socket.io, socket.io-client</span>
+    </div>
+  </div>
+
+  <!-- Feature 9 -->
+  <div class="feature-card medium">
+    <span class="badge">Medium Priority</span>
+    <h3>Feature 9: In-App Notification System</h3>
+    <p>
+      Notification bell with real-time alerts for: optimization completed, rerouting triggered, delivery status changed, vehicle marked unavailable. Optional email notifications via Nodemailer.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>New:</strong> NotificationContext.jsx, notifications table</span>
+      <span>⏱️ <strong>Effort:</strong> 3–4 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 10 -->
+  <div class="feature-card medium">
+    <span class="badge">Medium Priority</span>
+    <h3>Feature 10: Multi-Depot Support</h3>
+    <p>
+      Allow multiple depot locations with geographic zone assignment. Each depot serves a regional cluster of deliveries. Vehicles are assigned to their nearest depot. Requires updating the VRP solver to use multi-depot OR-Tools configuration.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> vrp_solver.py, depots table (new), RouteOptimizer.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 5–6 days</span>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">11.</span> Proposed Features — 🟢 Polish &amp; Enhancements</h1>
+
+  <!-- Feature 11 -->
+  <div class="feature-card polish">
+    <span class="badge">Polish</span>
+    <h3>Feature 11: Dark / Light Theme Toggle</h3>
+    <p>Add a theme switcher using Tailwind's dark mode class strategy. Persist theme preference in localStorage.</p>
+    <div class="meta-row">
+      <span>⏱️ <strong>Effort:</strong> 1–2 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 12 -->
+  <div class="feature-card polish">
+    <span class="badge">Polish</span>
+    <h3>Feature 12: Interactive AHP Weight Editor</h3>
+    <p>
+      Let admins adjust AHP pairwise comparison values through an interactive 6×6 matrix UI. Recalculate weights and consistency ratio in real-time. Preview how different weights affect route costs before running optimization.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>Affected:</strong> AHP.jsx, ahp.py (make weights configurable via API)</span>
+      <span>⏱️ <strong>Effort:</strong> 3–4 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 13 -->
+  <div class="feature-card polish">
+    <span class="badge">Polish</span>
+    <h3>Feature 13: Delivery Zone Geofencing &amp; Visualization</h3>
+    <p>Draw zone boundary polygons on the Leaflet map. Color-code delivery markers by zone. Show zone-level statistics (delivery count, total weight, average priority).</p>
+    <div class="meta-row">
+      <span>⏱️ <strong>Effort:</strong> 2–3 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 14 -->
+  <div class="feature-card polish">
+    <span class="badge">Polish</span>
+    <h3>Feature 14: Admin User Management Panel</h3>
+    <p>Admin page to view all registered users, change roles (rider ↔ admin), deactivate accounts, and view per-rider delivery performance metrics (deliveries completed, average time, failure rate).</p>
+    <div class="meta-row">
+      <span>📁 <strong>New:</strong> UserManagement.jsx, user management API endpoints</span>
+      <span>⏱️ <strong>Effort:</strong> 2–3 days</span>
+    </div>
+  </div>
+
+  <!-- Feature 15 -->
+  <div class="feature-card polish">
+    <span class="badge">Polish</span>
+    <h3>Feature 15: Optimization Configuration Presets</h3>
+    <p>
+      Save named optimization configurations (e.g., "Peak Hours", "Emergency Priority", "Low Capacity Mode") with custom AHP weights, priority penalties, and constraints. One-click re-run from saved presets.
+    </p>
+    <div class="meta-row">
+      <span>📁 <strong>New:</strong> optimization_presets table, PresetManager.jsx</span>
+      <span>⏱️ <strong>Effort:</strong> 2–3 days</span>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">12.</span> Implementation Roadmap</h1>
+
+  <table>
+    <thead>
+      <tr><th>Phase</th><th>Timeline</th><th>Features</th><th>Focus Area</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Phase 1</strong></td><td>Week 1–2</td>
+        <td>
+          • Charts Dashboard<br/>
+          • PDF / CSV Export<br/>
+          • Interactive AHP Editor
+        </td>
+        <td>Visual Impact &amp; Reporting</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 2</strong></td><td>Week 3–4</td>
+        <td>
+          • Rider Status View<br/>
+          • A* Integration<br/>
+          • Delivery Status Workflow
+        </td>
+        <td>Workflow Completion</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 3</strong></td><td>Week 5–6</td>
+        <td>
+          • Time Windows (VRPTW)<br/>
+          • Live Traffic API
+        </td>
+        <td>Algorithm Depth</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 4</strong></td><td>Week 7–8</td>
+        <td>
+          • Run Comparison<br/>
+          • WebSocket Tracking<br/>
+          • Notification System
+        </td>
+        <td>Real-Time &amp; Analytics</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 5</strong></td><td>Ongoing</td>
+        <td>
+          • Theme Toggle<br/>
+          • Zone Geofencing<br/>
+          • User Management<br/>
+          • Config Presets<br/>
+          • Multi-Depot
+        </td>
+        <td>Polish &amp; Scalability</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider" />
+  <h1><span class="num">13.</span> Effort Estimation Matrix</h1>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Feature</th><th>Priority</th><th>Effort (Days)</th><th>Complexity</th><th>Dependencies</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Charts Dashboard</td><td>🔴 High</td><td>3–4</td><td>Low</td><td>recharts</td></tr>
+      <tr><td>2</td><td>Time Windows (VRPTW)</td><td>🔴 High</td><td>5–7</td><td>High</td><td>OR-Tools dimension API</td></tr>
+      <tr><td>3</td><td>A* Integration</td><td>🔴 High</td><td>4–5</td><td>Medium</td><td>OSRM / OSM data</td></tr>
+      <tr><td>4</td><td>Rider Status View</td><td>🔴 High</td><td>4–5</td><td>Medium</td><td>New API endpoints</td></tr>
+      <tr><td>5</td><td>Live Traffic API</td><td>🔴 High</td><td>3–4</td><td>Medium</td><td>TomTom / HERE API key</td></tr>
+      <tr><td>6</td><td>Run Comparison</td><td>🟡 Medium</td><td>3–4</td><td>Medium</td><td>—</td></tr>
+      <tr><td>7</td><td>PDF / CSV Export</td><td>🟡 Medium</td><td>2–3</td><td>Low</td><td>jspdf, html2canvas</td></tr>
+      <tr><td>8</td><td>WebSocket Tracking</td><td>🟡 Medium</td><td>4–5</td><td>High</td><td>socket.io</td></tr>
+      <tr><td>9</td><td>Notification System</td><td>🟡 Medium</td><td>3–4</td><td>Medium</td><td>—</td></tr>
+      <tr><td>10</td><td>Multi-Depot</td><td>🟡 Medium</td><td>5–6</td><td>High</td><td>OR-Tools multi-depot</td></tr>
+      <tr><td>11</td><td>Theme Toggle</td><td>🟢 Polish</td><td>1–2</td><td>Low</td><td>—</td></tr>
+      <tr><td>12</td><td>Interactive AHP Editor</td><td>🟢 Polish</td><td>3–4</td><td>Medium</td><td>—</td></tr>
+      <tr><td>13</td><td>Zone Geofencing</td><td>🟢 Polish</td><td>2–3</td><td>Low</td><td>Leaflet polygon</td></tr>
+      <tr><td>14</td><td>User Management</td><td>🟢 Polish</td><td>2–3</td><td>Low</td><td>—</td></tr>
+      <tr><td>15</td><td>Config Presets</td><td>🟢 Polish</td><td>2–3</td><td>Low</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout success">
+    <div class="callout-title">💡 Recommendation for College Submission</div>
+    Focus on <strong>Phase 1 + Phase 2</strong> first. The charts dashboard and rider view will make the
+    biggest visual impression during live demonstrations. The VRPTW upgrade (Phase 3) will show the
+    deepest algorithmic understanding for academic evaluation.
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <hr class="section-divider page-break" />
+  <h1><span class="num">14.</span> Conclusion</h1>
+  <p>
+    PathWise is a <strong>well-architected delivery route optimization system</strong> with a solid
+    algorithmic foundation combining AHP multi-criteria decision making, multi-factor cost evaluation,
+    and Google OR-Tools CVRP optimization. The project demonstrates competence in full-stack development,
+    mathematical modeling, and logistics engineering.
+  </p>
+  <p>
+    The 15 proposed enhancements in this report address the key gaps in data visualization, real-time
+    interactivity, rider workflow completion, and algorithmic depth. Implementing even a subset of the
+    high-priority features (particularly the analytics dashboard, rider status view, and VRPTW upgrade)
+    would significantly elevate the project from a functional prototype to a comprehensive, presentation-ready
+    logistics platform.
+  </p>
+  <p>
+    The phased roadmap provides a structured path for incremental improvement, ensuring each development
+    sprint delivers demonstrable value while maintaining system stability.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-title">⚡ Quick Wins (Implementable Today)</div>
+    <ol>
+      <li>Add Recharts to the Dashboard for instant visual upgrade</li>
+      <li>Add a "Download CSV" button on the Results page</li>
+      <li>Refactor Dashboard.jsx from 14 compressed lines to readable components</li>
+      <li>Add <code>PATCH /api/deliveries/:id/status</code> for delivery tracking</li>
+    </ol>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────── -->
+  <div class="footer">
+    <p><strong>PathWise</strong> — Multi-Factor Delivery Route Optimization System</p>
+    <p>Project Analysis &amp; Feature Proposal Report · October 2026</p>
+    <p style="margin-top:8px;">Generated for academic evaluation and project planning purposes.</p>
+  </div>
+
+</div><!-- .content -->
+
+</body>
+</html>
+
