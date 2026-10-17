@@ -8,10 +8,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function getAuthHeaders(customHeaders = {}) {
-  const token = typeof localStorage !== "undefined" ? localStorage.getItem("pathwise_token") : null;
   const headers = { ...customHeaders };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  if (!headers["Authorization"]) {
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("pathwise_token") : null;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
   }
   return headers;
 }
@@ -38,6 +40,18 @@ async function handleResponse(response) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem("pathwise_token");
+          localStorage.removeItem("pathwise_user");
+        }
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("pathwise_auth_expired", { detail: { message: "Session expired" } }));
+        }
+      } catch (_) {}
+    }
+
     // Extract server-provided error title or message if available
     const serverMessage =
       (data && typeof data === "object" && (data.message || data.error)) ||
@@ -396,13 +410,22 @@ export const getDashboardStats = () => logisticsRequest('/dashboard/stats');
 export const getDeliveries = (query = '') => logisticsRequest(`/deliveries${query ? `?${query}` : ''}`);
 export const saveDelivery = (item, token, isUpdate = false) => logisticsRequest(isUpdate ? `/deliveries/${encodeURIComponent(item.delivery_id)}` : '/deliveries', { method: isUpdate ? 'PUT' : 'POST', body: item, token });
 export const removeDelivery = (id, token) => logisticsRequest(`/deliveries/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+export const updateDeliveryStatus = (id, status, token) => logisticsRequest(`/deliveries/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status }, token });
 export const getVehicles = (query = '') => logisticsRequest(`/vehicles${query ? `?${query}` : ''}`);
 export const saveVehicle = (item, token) => logisticsRequest(item.vehicle_id ? `/vehicles/${encodeURIComponent(item.vehicle_id)}` : '/vehicles', { method: item.vehicle_id ? 'PUT' : 'POST', body: item, token });
 export const removeVehicle = (id, token) => logisticsRequest(`/vehicles/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 export const loadDemoDataset = (token) => logisticsRequest('/demo/seed', { method: 'POST', token });
+export const getRiders = (token) => logisticsRequest('/riders', { token });
+export const assignRiderToVehicle = (userId, vehicleId, token) => logisticsRequest('/rider/assignments', { method: 'POST', body: { user_id: userId, vehicle_id: vehicleId }, token });
+export const unassignRiderFromVehicle = (userId, vehicleId = '', token) => logisticsRequest(`/rider/assignments/${encodeURIComponent(userId)}${vehicleId ? `/${encodeURIComponent(vehicleId)}` : ''}`, { method: 'DELETE', token });
+export const compareOptimization = (payload = {}, token) => logisticsRequest('/optimize/compare', { method: 'POST', body: payload, token });
+export const getAstarDetour = (payload = {}, token) => logisticsRequest('/astar/detour', { method: 'POST', body: payload, token });
+
 export default {
   checkHealth,
   runOptimization,
+  compareOptimization,
+  getAstarDetour,
   getRealtimeData,
   getAhpWeights,
   getRouteGeometries,
@@ -415,5 +438,7 @@ export default {
   loginUser,
   getAuthMe,
   signupUser,
-  getDashboardStats, getDeliveries, saveDelivery, removeDelivery, getVehicles, saveVehicle, removeVehicle, loadDemoDataset,
+  getDashboardStats, getDeliveries, saveDelivery, removeDelivery, updateDeliveryStatus,
+  getVehicles, saveVehicle, removeVehicle, loadDemoDataset,
+  getRiders, assignRiderToVehicle, unassignRiderFromVehicle,
 };

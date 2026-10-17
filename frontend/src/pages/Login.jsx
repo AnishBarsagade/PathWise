@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, login } = useAuth();
+  const { user, isAuthenticated, login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,8 +13,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Already logged in — redirect to dashboard
+  // Already logged in — redirect to appropriate dashboard
   if (isAuthenticated) {
+    if (user?.role === "rider") {
+      return <Navigate to="/rider" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -31,11 +34,25 @@ const Login = () => {
 
       login(data.token, data.user);
 
-      navigate("/dashboard", { replace: true });
+      if (data.user?.role === "rider") {
+        navigate("/rider", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
     } catch (err) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQuickFill = (roleType) => {
+    if (roleType === "admin") {
+      setEmail("admin@pathwise.com");
+      setPassword("PathWise@123");
+    } else {
+      setEmail("rider@pathwise.com");
+      setPassword("PathWise@123");
     }
   };
 
@@ -191,6 +208,27 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          {/* Quick Demo Credentials */}
+          <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-center">
+            <p className="text-xs font-semibold text-gray-400">Quick Demo Credentials (Viva / Testing)</p>
+            <div className="mt-2.5 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickFill("admin")}
+                className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20"
+              >
+                Admin Account
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill("rider")}
+                className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-400/20"
+              >
+                Rider Account
+              </button>
+            </div>
+          </div>
 
           {/* Signup */}
           <div className="mt-6 text-center text-sm text-gray-500">
