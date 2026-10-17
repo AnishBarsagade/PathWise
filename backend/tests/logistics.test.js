@@ -34,4 +34,61 @@ describe('Persistent logistics data APIs', () => {
     expect(invalid.status).toBe(400);
     expect(invalid.body.message).toContain('Assigned vehicle does not exist');
   });
+
+  it('updates delivery status via PATCH /api/deliveries/:id/status for admin and assigned rider', async () => {
+    // 1. Admin can update status to in_progress
+    const adminUpdate = await request(app)
+      .patch(`/api/deliveries/${deliveryId}/status`)
+      .set(auth)
+      .send({ status: 'in_progress' });
+    expect(adminUpdate.status).toBe(200);
+    expect(adminUpdate.body.delivery.status).toBe('in_progress');
+
+    // 2. Setup a rider assigned to vehicleId
+    const riderUser = db.createUser({
+      name: 'Status Test Rider',
+      email: `rider_${suffix}@pathwise.com`,
+      passwordHash: 'dummy',
+      role: 'rider',
+    });
+    db.assignRiderToVehicle(riderUser.id, vehicleId);
+
+    const riderToken = jwt.sign({ id: riderUser.id, role: 'rider' }, config.JWT_SECRET, { expiresIn: '5m' });
+    const riderAuth = { Authorization: `Bearer ${riderToken}` };
+
+    // Assigned rider can complete delivery
+    const riderUpdate = await request(app)
+      .patch(`/api/deliveries/${deliveryId}/status`)
+      .set(riderAuth)
+      .send({ status: 'completed' });
+    expect(riderUpdate.status).toBe(200);
+    expect(riderUpdate.body.delivery.status).toBe('completed');
+
+    // 3. Unassigned rider gets 403 Forbidden
+    const otherRider = db.createUser({
+      name: 'Other Rider',
+      email: `other_${suffix}@pathwise.com`,
+      passwordHash: 'dummy',
+      role: 'rider',
+    });
+    const otherToken = jwt.sign({ id: otherRider.id, role: 'rider' }, config.JWT_SECRET, { expiresIn: '5m' });
+    const otherForbidden = await request(app)
+      .patch(`/api/deliveries/${deliveryId}/status`)
+      .set({ Authorization: `Bearer ${otherToken}` })
+      .send({ status: 'pending' });
+    expect(otherForbidden.status).toBe(403);
+
+    // 4. Invalid status returns 400
+    const invalidStatus = await request(app)
+      .patch(`/api/deliveries/${deliveryId}/status`)
+      .set(auth)
+      .send({ status: 'unknown_status' });
+    expect(invalidStatus.status).toBe(400);
+
+    // 5. Admin can list riders
+    const ridersRes = await request(app).get('/api/riders').set(auth);
+    expect(ridersRes.status).toBe(200);
+    expect(Array.isArray(ridersRes.body)).toBe(true);
+    expect(ridersRes.body.some((r) => r.id === riderUser.id)).toBe(true);
+  });
 });

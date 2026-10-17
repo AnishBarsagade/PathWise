@@ -98,10 +98,76 @@ async function unassignRider(req, res, next) {
   }
 }
 
+/**
+ * PATCH /api/deliveries/:id/status
+ * Updates delivery status.
+ * - Admins can update any delivery status.
+ * - Riders can update status for deliveries assigned to their active vehicle.
+ */
+async function updateDeliveryStatus(req, res, next) {
+  try {
+    const deliveryId = req.params.id;
+    const { status } = req.body || {};
+    const validStatuses = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled'];
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const delivery = dbService.getDelivery(deliveryId);
+    if (!delivery) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Delivery with ID '${deliveryId}' was not found.`,
+      });
+    }
+
+    // Role-based authorization
+    if (req.user && req.user.role === 'rider') {
+      const assignedRiderId = delivery.assigned_vehicle_id
+        ? dbService.getRiderByVehicleId(delivery.assigned_vehicle_id)
+        : null;
+
+      if (!assignedRiderId || String(assignedRiderId) !== String(req.user.id)) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Access denied. Riders can only update deliveries assigned to their active vehicle.',
+        });
+      }
+    }
+
+    const updated = dbService.updateDeliveryStatus(deliveryId, status);
+    return res.status(200).json({
+      message: `Delivery ${deliveryId} status updated to '${status}'.`,
+      delivery: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/riders
+ * Returns all registered riders (Admin only).
+ */
+async function listRiders(req, res, next) {
+  try {
+    const riders = dbService.listRiders();
+    return res.status(200).json(riders);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getMyAssignments,
   getRiderAssignmentsById,
   assignRider,
   unassignRider,
+  updateDeliveryStatus,
+  listRiders,
 };
 

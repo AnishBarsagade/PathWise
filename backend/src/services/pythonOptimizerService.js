@@ -12,6 +12,9 @@ function runOptimization(inputData = {}) {
     const projectRoot = config.PROJECT_ROOT;
 
     const args = ['-m', 'algorithms.vrp.vrp_solver', '--json', '--stdin'];
+    if (inputData && (inputData.compare || inputData.is_compare)) {
+      args.push('--compare');
+    }
 
     const child = spawn(pythonExecutable, args, {
       cwd: projectRoot,
