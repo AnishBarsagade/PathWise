@@ -94,7 +94,26 @@ async function optimizeRoutes(req, res, next) {
   }
 }
 
+async function compareOptimization(req, res, next) {
+  try {
+    let inputData = req.body || {};
+    const hasCustomInput = Array.isArray(inputData.deliveries) || Array.isArray(inputData.vehicles);
+    if (!hasCustomInput) {
+      const savedInput = dbService.getOptimizationInputFromDatabase();
+      if (savedInput.deliveries.length || savedInput.vehicles.length) {
+        inputData = { ...savedInput, source: 'database' };
+      }
+    }
+    inputData.compare = true;
+    const result = await pythonOptimizerService.runOptimization(inputData);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   optimizeRoutes,
+  compareOptimization,
   getAhpWeights: (req, res) => res.status(200).json({ weights: AHP_WEIGHTS }),
 };

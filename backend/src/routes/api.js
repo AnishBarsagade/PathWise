@@ -1,7 +1,8 @@
 const express = require("express");
 
 const { getHealth } = require("../controllers/healthController");
-const { optimizeRoutes, getAhpWeights } = require("../controllers/optimizationController");
+const { optimizeRoutes, getAhpWeights, compareOptimization } = require("../controllers/optimizationController");
+const { getAstarDetour } = require("../controllers/astarController");
 const { getRealtimeData } = require("../controllers/realtimeController");
 
 const {
@@ -31,11 +32,16 @@ router.post("/auth/signup", signup);
 router.post("/auth/login", login);
 router.get("/auth/me", authMiddleware, getMe);
 
-// Rider assignments
+// Rider assignments & directory
+router.get("/riders", authMiddleware, adminMiddleware, rider.listRiders);
 router.get("/rider/assignments", authMiddleware, rider.getMyAssignments);
 router.get("/rider/assignments/:userId", authMiddleware, rider.getRiderAssignmentsById);
 router.post("/rider/assignments", authMiddleware, adminMiddleware, rider.assignRider);
 router.delete("/rider/assignments/:userId/:vehicleId?", authMiddleware, adminMiddleware, rider.unassignRider);
+
+// Delivery status update (Rider or Admin)
+router.patch('/deliveries/:id/status', authMiddleware, rider.updateDeliveryStatus);
+router.put('/deliveries/:id/status', authMiddleware, rider.updateDeliveryStatus);
 
 // Persistent synthetic logistics data. Reads are available to the protected UI;
 // mutations require an authenticated administrator.
@@ -59,6 +65,10 @@ router.get("/realtime-data", getRealtimeData);
 router.get('/ahp/weights', getAhpWeights);
 router.post('/route-geometry', getRouteGeometries);
 router.post("/optimize", authMiddleware, adminMiddleware, validateOptimizationInput, optimizeRoutes);
+router.post("/optimize/compare", authMiddleware, adminMiddleware, validateOptimizationInput, compareOptimization);
+
+// A* Detour pathfinding
+router.post("/astar/detour", optionalAuthMiddleware, getAstarDetour);
 
 // Optimization history
 router.get("/optimization/history", getOptimizationHistory);

@@ -61,6 +61,7 @@ const Signup = () => {
         name: name.trim(),
         email: email.trim(),
         password,
+        confirmPassword,
       });
 
       setSuccess("Account created successfully! Redirecting to login...");

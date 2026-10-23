@@ -203,4 +203,35 @@ describe('Optimization API (POST /api/optimize)', () => {
 
     spy.mockRestore();
   });
+
+  // 11. Side-by-side Distance vs Multi-factor Optimization Comparison
+  it('should return side-by-side comparison on POST /api/optimize/compare', async () => {
+    const res = await request(app).post('/api/optimize/compare').set(auth).send({});
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('distance_based');
+    expect(res.body).toHaveProperty('multifactor');
+    expect(res.body).toHaveProperty('comparison');
+
+    const comp = res.body.comparison;
+    expect(comp).toHaveProperty('distance_based_km');
+    expect(comp).toHaveProperty('multifactor_km');
+    expect(comp).toHaveProperty('cost_improvement_pct');
+    expect(typeof comp.summary).toBe('string');
+  }, 35000);
+
+  // 12. A* Detour pathfinding
+  it('should compute A* detour path on POST /api/astar/detour', async () => {
+    const res = await request(app)
+      .post('/api/astar/detour')
+      .send({
+        start: 'DEPOT',
+        goal: 'D006',
+        closed_edges: [['DEPOT', 'D005'], ['D001', 'D005']],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('base_route');
+    expect(res.body).toHaveProperty('optimal_route');
+    expect(res.body.detour_required).toBe(true);
+    expect(res.body.optimal_route.path).toEqual(expect.arrayContaining(['DEPOT', 'D006']));
+  });
 });

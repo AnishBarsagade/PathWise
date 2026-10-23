@@ -18,6 +18,7 @@ import DynamicRerouting from "./pages/DynamicRerouting";
 import Deliveries from './pages/Deliveries';
 import Fleet from './pages/Fleet';
 import OptimizationHistory from './pages/OptimizationHistory';
+import RiderDashboard from './pages/RiderDashboard';
 
 const App = () => {
   return (
@@ -49,6 +50,14 @@ const App = () => {
                           </ProtectedRoute>
                         }
                       />
+                      <Route
+                        path="/rider"
+                        element={
+                          <ProtectedRoute>
+                            <RiderDashboard />
+                          </ProtectedRoute>
+                        }
+                      />
 
                       <Route
                         path="/route-optimizer"
@@ -60,7 +69,8 @@ const App = () => {
                       />
                       <Route path="/deliveries" element={<ProtectedRoute><Deliveries /></ProtectedRoute>} />
                       <Route path="/fleet" element={<ProtectedRoute requiredRole="admin"><Fleet /></ProtectedRoute>} />
-                      <Route path="/optimization-history" element={<ProtectedRoute requiredRole="admin"><OptimizationHistory /></ProtectedRoute>} />
+                      <Route path="/optimization-history" element={<ProtectedRoute><OptimizationHistory /></ProtectedRoute>} />
+                      <Route path="/history" element={<ProtectedRoute><OptimizationHistory /></ProtectedRoute>} />
 
                       <Route
                         path="/ahp"

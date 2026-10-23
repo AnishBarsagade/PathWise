@@ -155,6 +155,53 @@ function seedAdminUser(database) {
         new Date().toISOString(),
       );
   }
+
+  // Also seed default demo rider account if it does not exist
+  let rider = database
+    .prepare("SELECT id FROM users WHERE email = ?")
+    .get("rider@pathwise.com");
+
+  if (!rider) {
+    const riderHash = bcrypt.hashSync("PathWise@123", 10);
+    const result = database
+      .prepare(
+        `
+        INSERT INTO users (
+          name,
+          email,
+          password_hash,
+          role,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `,
+      )
+      .run(
+        "Rahul Sharma (Rider)",
+        "rider@pathwise.com",
+        riderHash,
+        "rider",
+        new Date().toISOString(),
+      );
+
+    rider = { id: result.lastInsertRowid };
+  }
+
+  // Ensure rider is assigned to an active vehicle in fleet
+  if (rider) {
+    const hasAssignment = database.prepare("SELECT id FROM rider_assignments WHERE user_id = ?").get(rider.id);
+    if (!hasAssignment) {
+      let vehicle = database.prepare("SELECT vehicle_id FROM vehicles WHERE vehicle_id = 'V001'").get();
+      if (!vehicle) {
+        vehicle = database.prepare("SELECT vehicle_id FROM vehicles ORDER BY vehicle_id ASC LIMIT 1").get();
+      }
+      if (vehicle) {
+        database
+          .prepare("INSERT INTO rider_assignments (user_id, vehicle_id, created_at) VALUES (?, ?, ?)")
+          .run(rider.id, vehicle.vehicle_id, new Date().toISOString());
+      }
+    }
+  }
 }
 
 /**
@@ -300,6 +347,21 @@ function saveOptimizationRun({
         ? JSON.stringify(result_json)
         : result_json || "{}",
   });
+
+  // Stamp assigned_vehicle_id on deliveries for served stops
+  try {
+    const routeList = typeof routes === "string" ? JSON.parse(routes) : (Array.isArray(routes) ? routes : []);
+    const updateDeliv = database.prepare("UPDATE deliveries SET assigned_vehicle_id = ?, status = CASE WHEN status = 'pending' THEN 'assigned' ELSE status END WHERE delivery_id = ?");
+    for (const r of routeList) {
+      if (r && r.vehicle_id && Array.isArray(r.route)) {
+        for (const stop of r.route) {
+          if (stop && stop !== "DEPOT") {
+            updateDeliv.run(r.vehicle_id, stop);
+          }
+        }
+      }
+    }
+  } catch (_) {}
 
   return run_id;
 }
@@ -530,6 +592,17 @@ function saveDelivery(item, existing = false) {
   return getDelivery(item.delivery_id);
 }
 function deleteDelivery(id) { return getDb().prepare('DELETE FROM deliveries WHERE delivery_id = ?').run(id).changes > 0; }
+function updateDeliveryStatus(id, status) {
+  const now = new Date().toISOString();
+  const database = getDb();
+  const result = database.prepare('UPDATE deliveries SET status = ?, updated_at = ? WHERE delivery_id = ?').run(status, now, id);
+  if (result.changes === 0) return null;
+  return getDelivery(id);
+}
+function listRiders() {
+  const database = getDb();
+  return database.prepare("SELECT id, name, email, role, created_at FROM users WHERE role = 'rider' ORDER BY name ASC").all();
+}
 function listVehicles({ manufacturer, vehicle_class, availability, min_capacity } = {}) {
   const where = [], params = [];
   if (manufacturer) { where.push('manufacturer = ?'); params.push(manufacturer); }
@@ -624,7 +697,7 @@ function getRiderAssignments(userId) {
     };
   }
 
-  const deliveries = database.prepare(`
+  let deliveries = database.prepare(`
     SELECT * FROM deliveries WHERE assigned_vehicle_id = ?
   `).all(assignment.vehicle_id);
 
@@ -639,6 +712,20 @@ function getRiderAssignments(userId) {
       const parsedRoutes = JSON.parse(latestRun.routes);
       assignedRoute = parsedRoutes.find((r) => r.vehicle_id === assignment.vehicle_id) || null;
     } catch (_) {}
+  }
+
+  // If deliveries weren't explicitly stamped with assigned_vehicle_id, but the assigned route has stops:
+  if (deliveries.length === 0 && assignedRoute && Array.isArray(assignedRoute.route)) {
+    const stopIds = assignedRoute.route.filter((s) => s !== 'DEPOT');
+    if (stopIds.length > 0) {
+      const placeholders = stopIds.map(() => '?').join(',');
+      deliveries = database.prepare(`SELECT * FROM deliveries WHERE delivery_id IN (${placeholders})`).all(...stopIds);
+    }
+  }
+
+  // Fallback: If still no deliveries, and vehicle is V001 (demo vehicle), fetch first 3-4 demo deliveries
+  if (deliveries.length === 0 && assignment.vehicle_id === 'V001') {
+    deliveries = database.prepare(`SELECT * FROM deliveries LIMIT 4`).all();
   }
 
   return {
@@ -697,7 +784,7 @@ module.exports = {
   getRiderAssignments,
   getRiderByVehicleId,
   deleteRiderAssignment,
-  listDeliveries, getDelivery, saveDelivery, deleteDelivery,
+  listDeliveries, getDelivery, saveDelivery, deleteDelivery, updateDeliveryStatus,
   listVehicles, getVehicle, saveVehicle, deleteVehicle, seedDemoData,
-  getDashboardStats, getOptimizationInputFromDatabase,
+  getDashboardStats, getOptimizationInputFromDatabase, listRiders,
 };

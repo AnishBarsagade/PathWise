@@ -14,6 +14,12 @@ const Sidebar = () => {
       adminOnly: false,
     },
     {
+      name: "Rider Tasks",
+      path: "/rider",
+      icon: "⚡",
+      adminOnly: false,
+    },
+    {
       name: "Route Optimizer",
       path: "/route-optimizer",
       icon: "↗",

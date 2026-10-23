@@ -9,6 +9,7 @@ const Navbar = () => {
 
   const pageNames = {
     "/dashboard": "Dashboard",
+    "/rider": "Rider Operations",
     "/route-optimizer": "Route Optimizer",
     "/deliveries": "Deliveries",
     "/fleet": "Mixed Fleet",
@@ -60,9 +61,12 @@ const Navbar = () => {
           </div>
 
           {user && (
-            <span className="hidden text-xs text-gray-400 lg:block">
-              {user.email}
-            </span>
+            <div className="hidden items-center gap-2 lg:flex">
+              <span className="text-xs text-gray-400">{user.name || user.email}</span>
+              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${user.role === 'admin' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}`}>
+                {user.role}
+              </span>
+            </div>
           )}
 
           <button
