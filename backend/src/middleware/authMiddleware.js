@@ -54,7 +54,6 @@ function optionalAuthMiddleware(req, res, next) {
   }
 }
 
-authMiddleware.authMiddleware = authMiddleware;
 authMiddleware.optionalAuthMiddleware = optionalAuthMiddleware;
 
 module.exports = authMiddleware;

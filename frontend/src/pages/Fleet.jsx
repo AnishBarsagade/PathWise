@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getVehicles,
   saveVehicle,
@@ -40,7 +40,6 @@ export default function Fleet() {
   const [vehicles, setVehicles] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
   const [toast, setToast] = useState(null);
 
   // Modal State
@@ -62,7 +61,7 @@ export default function Fleet() {
       setVehicles(vehList || []);
       setRiders(riderList || []);
     } catch (err) {
-      setMessage(err.message || "Failed to load fleet data.");
+      setToast({ type: "error", message: err.message || "Failed to load fleet data." });
     } finally {
       setLoading(false);
     }

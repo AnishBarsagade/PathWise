@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getDeliveries, getVehicles, removeDelivery, saveDelivery, loadDemoDataset } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -28,7 +28,6 @@ export default function Deliveries() {
   const [totalCount, setTotalCount] = useState(0);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
   const [toast, setToast] = useState(null);
 
   // Filters
@@ -61,7 +60,7 @@ export default function Deliveries() {
       setTotalCount(delivRes.total || 0);
       setVehicles(vehRes || []);
     } catch (err) {
-      setMessage(err.message || "Failed to load deliveries.");
+      setToast({ type: "error", message: err.message || "Failed to load deliveries." });
     } finally {
       setLoading(false);
     }

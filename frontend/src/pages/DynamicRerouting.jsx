@@ -62,11 +62,6 @@ const DynamicRerouting = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // 1. Fetch past optimization runs on mount
-  useEffect(() => {
-    fetchRuns();
-    fetchHistory();
-  }, []);
 
   const fetchRuns = async () => {
     setLoadingRuns(true);
@@ -97,6 +92,12 @@ const DynamicRerouting = () => {
       setLoadingHistory(false);
     }
   };
+
+  // 1. Fetch past optimization runs on mount
+  useEffect(() => {
+    fetchRuns();
+    fetchHistory();
+  }, []);
 
   // Load detailed configuration for selected run
   const loadRunDetails = async (runId) => {

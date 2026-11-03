@@ -1,4 +1,3 @@
-import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
@@ -15,10 +14,12 @@ import AHP from "./pages/AHP";
 import CostFunction from "./pages/CostFunction";
 import Results from "./pages/Results";
 import DynamicRerouting from "./pages/DynamicRerouting";
-import Deliveries from './pages/Deliveries';
-import Fleet from './pages/Fleet';
-import OptimizationHistory from './pages/OptimizationHistory';
-import RiderDashboard from './pages/RiderDashboard';
+import Deliveries from "./pages/Deliveries";
+import Fleet from "./pages/Fleet";
+import OptimizationHistory from "./pages/OptimizationHistory";
+import RiderDashboard from "./pages/RiderDashboard";
+import LiveVehicleTracking from "./pages/LiveVehicleTracking";
+import MultiVehiclePlanner from "./pages/MultiVehiclePlanner";
 
 const App = () => {
   return (
@@ -55,6 +56,38 @@ const App = () => {
                         element={
                           <ProtectedRoute>
                             <RiderDashboard />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/live-tracking"
+                        element={
+                          <ProtectedRoute>
+                            <LiveVehicleTracking />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/tracking"
+                        element={
+                          <ProtectedRoute>
+                            <LiveVehicleTracking />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/multi-vehicle-planner"
+                        element={
+                          <ProtectedRoute>
+                            <MultiVehiclePlanner />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/multi-vehicle-simulation"
+                        element={
+                          <ProtectedRoute>
+                            <MultiVehiclePlanner />
                           </ProtectedRoute>
                         }
                       />

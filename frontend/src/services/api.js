@@ -33,6 +33,7 @@ async function handleResponse(response) {
     } catch (parseError) {
       throw new Error(
         `Failed to parse server response as JSON: ${parseError.message}`,
+        { cause: parseError }
       );
     }
   } else {
@@ -49,7 +50,9 @@ async function handleResponse(response) {
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("pathwise_auth_expired", { detail: { message: "Session expired" } }));
         }
-      } catch (_) {}
+      } catch {
+        // Ignore session clearing errors in headless environments
+      }
     }
 
     // Extract server-provided error title or message if available
@@ -365,20 +368,16 @@ export async function rerouteRoute(payload, token = null) {
 }
 
 export async function getRiderAssignments(userId = null, token = null) {
-  try {
-    const path = userId ? `/rider/assignments/${encodeURIComponent(userId)}` : `/rider/assignments`;
-    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "GET",
-      headers: getAuthHeaders({
-        Accept: "application/json",
-        ...authHeaders,
-      }),
-    });
-    return await handleResponse(response);
-  } catch (error) {
-    throw error;
-  }
+  const path = userId ? `/rider/assignments/${encodeURIComponent(userId)}` : `/rider/assignments`;
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers: getAuthHeaders({
+      Accept: "application/json",
+      ...authHeaders,
+    }),
+  });
+  return await handleResponse(response);
 }
 
 export const loginUser = loginAdmin;
@@ -421,6 +420,295 @@ export const unassignRiderFromVehicle = (userId, vehicleId = '', token) => logis
 export const compareOptimization = (payload = {}, token) => logisticsRequest('/optimize/compare', { method: 'POST', body: payload, token });
 export const getAstarDetour = (payload = {}, token) => logisticsRequest('/astar/detour', { method: 'POST', body: payload, token });
 
+
+/**
+ * Retrieves all fleet vehicles with live tracking status, coordinates, and driver.
+ */
+export async function getTrackingVehicles(token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/vehicles", {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Retrieves live tracking snapshot for a specific vehicle.
+ */
+export async function getVehicleTrackingStatus(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/vehicles/" + vehicleId, {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Retrieves the breadcrumb trail history for a vehicle.
+ */
+export async function getVehicleLocationTrail(vehicleId, options = 500, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  let query = "?limit=500";
+  if (typeof options === "number") {
+    query = `?limit=${options}`;
+  } else if (typeof options === "object" && options !== null) {
+    const params = new URLSearchParams();
+    if (options.limit) params.set("limit", options.limit);
+    if (options.session_id) params.set("session_id", options.session_id);
+    query = `?${params.toString()}`;
+  }
+  const response = await fetch(API_BASE_URL + "/tracking/history/" + vehicleId + query, {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Retrieves planned route stops and waypoints for a vehicle.
+ */
+export async function getPlannedRouteForVehicle(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/planned-route/" + vehicleId, {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Submits a GPS ping via HTTP REST fallback.
+ */
+export async function postGpsPing(payload, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/ping", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Starts a tracking session for a vehicle.
+ */
+export async function startTrackingSession(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/session/start", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Stops a tracking session for a vehicle.
+ */
+export async function stopTrackingSession(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/tracking/session/stop", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+
+/**
+ * SIMULATION API HELPERS
+ */
+export async function getSimulationStatus(token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/status", {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+export async function getSimulationRoutes(token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/routes", {
+    method: "GET",
+    headers: getAuthHeaders({ Accept: "application/json", ...authHeaders }),
+  });
+  return handleResponse(response);
+}
+
+export async function createSimulatedVehicle(payload, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/vehicles", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function startBackendSimulation(payload, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/start", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function setSimulationSpeed(vehicleId, multiplier, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/speed", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId, multiplier }),
+  });
+  return handleResponse(response);
+}
+
+export async function triggerSimulationDeviation(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/deviate", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+export async function resumeSimulationRoute(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/resume", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+export async function triggerSimulationBreakdown(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/breakdown", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+export async function stopBackendSimulation(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/stop", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", Accept: "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+
+export async function pauseBackendSimulation(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/pause", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+export async function resumeBackendSimulationMovement(vehicleId, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/simulation/resume-movement", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify({ vehicle_id: vehicleId }),
+  });
+  return handleResponse(response);
+}
+
+export async function getMultiVehicleLocations(token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/locations", {
+    method: "GET",
+    headers: getAuthHeaders(authHeaders),
+  });
+  return handleResponse(response);
+}
+
+export async function planMultiVehicleJourney(payload, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/plan", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function startMultiVehicleSimulations(payload, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/start", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function pauseMultiVehicleSimulations(payload = {}, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/pause", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function resumeMultiVehicleSimulations(payload = {}, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/resume", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function stopMultiVehicleSimulations(payload = {}, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/stop", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function resetMultiVehicleSimulations(payload = {}, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/reset", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function setMultiVehicleSpeed(payload = {}, token = null) {
+  const authHeaders = token ? { Authorization: "Bearer " + token } : {};
+  const response = await fetch(API_BASE_URL + "/multi-vehicle/simulate/speed", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json", ...authHeaders }),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
 export default {
   checkHealth,
   runOptimization,
@@ -434,11 +722,36 @@ export default {
   getReroutingHistory,
   rerouteRoute,
   getRiderAssignments,
-  loginAdmin,
   loginUser,
   getAuthMe,
   signupUser,
   getDashboardStats, getDeliveries, saveDelivery, removeDelivery, updateDeliveryStatus,
   getVehicles, saveVehicle, removeVehicle, loadDemoDataset,
   getRiders, assignRiderToVehicle, unassignRiderFromVehicle,
+  getTrackingVehicles,
+  getVehicleTrackingStatus,
+  getVehicleLocationTrail,
+  getPlannedRouteForVehicle,
+  postGpsPing,
+  startTrackingSession,
+  stopTrackingSession,
+  getSimulationStatus,
+  getSimulationRoutes,
+  createSimulatedVehicle,
+  startBackendSimulation,
+  setSimulationSpeed,
+  triggerSimulationDeviation,
+  resumeSimulationRoute,
+  triggerSimulationBreakdown,
+  stopBackendSimulation,
+  pauseBackendSimulation,
+  resumeBackendSimulationMovement,
+  getMultiVehicleLocations,
+  planMultiVehicleJourney,
+  startMultiVehicleSimulations,
+  pauseMultiVehicleSimulations,
+  resumeMultiVehicleSimulations,
+  stopMultiVehicleSimulations,
+  resetMultiVehicleSimulations,
+  setMultiVehicleSpeed,
 };

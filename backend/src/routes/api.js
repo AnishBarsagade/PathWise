@@ -13,6 +13,9 @@ const {
 
 const { login, signup, getMe } = require("../controllers/authController");
 const rider = require("../controllers/riderController");
+const tracking = require("../controllers/trackingController");
+const simulation = require("../controllers/simulationController");
+const multiVehicle = require("../controllers/multiVehicleController");
 
 const validateOptimizationInput = require("../middleware/validateOptimizationInput");
 const authMiddleware = require("../middleware/authMiddleware");
@@ -41,7 +44,39 @@ router.delete("/rider/assignments/:userId/:vehicleId?", authMiddleware, adminMid
 
 // Delivery status update (Rider or Admin)
 router.patch('/deliveries/:id/status', authMiddleware, rider.updateDeliveryStatus);
-router.put('/deliveries/:id/status', authMiddleware, rider.updateDeliveryStatus);
+
+// Live GPS Vehicle Tracking
+router.get("/tracking/vehicles", authMiddleware, tracking.getAllVehicles);
+router.get("/tracking/vehicles/:id", authMiddleware, tracking.getVehicleStatus);
+router.get("/tracking/history/:id", authMiddleware, tracking.getVehicleTrail);
+router.get("/tracking/planned-route/:id", authMiddleware, tracking.getPlannedRoute);
+router.get("/tracking/deviations", authMiddleware, tracking.getDeviationEvents);
+router.post("/tracking/ping", authMiddleware, tracking.postGpsPing);
+router.post("/tracking/session/start", authMiddleware, tracking.startSession);
+router.post("/tracking/session/stop", authMiddleware, tracking.stopSession);
+
+// Simulation Mode (Admin Controlled)
+router.get("/simulation/status", authMiddleware, simulation.getStatus);
+router.get("/simulation/routes", authMiddleware, simulation.getAvailableRoutes);
+router.post("/simulation/vehicles", authMiddleware, adminMiddleware, simulation.createVehicle);
+router.post("/simulation/start", authMiddleware, adminMiddleware, simulation.start);
+router.post("/simulation/speed", authMiddleware, adminMiddleware, simulation.setSpeed);
+router.post("/simulation/deviate", authMiddleware, adminMiddleware, simulation.triggerDeviate);
+router.post("/simulation/resume", authMiddleware, adminMiddleware, simulation.resume);
+router.post("/simulation/pause", authMiddleware, adminMiddleware, simulation.pause);
+router.post("/simulation/resume-movement", authMiddleware, adminMiddleware, simulation.resumeMovement);
+router.post("/simulation/breakdown", authMiddleware, adminMiddleware, simulation.triggerBreakdownIncident);
+router.post("/simulation/stop", authMiddleware, adminMiddleware, simulation.stop);
+
+// Interactive Multi-Vehicle Route Planning & Road Simulation
+router.get("/multi-vehicle/locations", optionalAuthMiddleware, multiVehicle.getLocations);
+router.post("/multi-vehicle/plan", optionalAuthMiddleware, multiVehicle.planRoutes);
+router.post("/multi-vehicle/simulate/start", authMiddleware, adminMiddleware, multiVehicle.startSimulation);
+router.post("/multi-vehicle/simulate/pause", authMiddleware, adminMiddleware, multiVehicle.pauseSimulation);
+router.post("/multi-vehicle/simulate/resume", authMiddleware, adminMiddleware, multiVehicle.resumeSimulation);
+router.post("/multi-vehicle/simulate/stop", authMiddleware, adminMiddleware, multiVehicle.stopSimulation);
+router.post("/multi-vehicle/simulate/reset", authMiddleware, adminMiddleware, multiVehicle.resetSimulation);
+router.post("/multi-vehicle/simulate/speed", authMiddleware, adminMiddleware, multiVehicle.setSpeed);
 
 // Persistent synthetic logistics data. Reads are available to the protected UI;
 // mutations require an authenticated administrator.

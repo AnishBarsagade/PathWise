@@ -1,4 +1,3 @@
-import React from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -14,6 +13,18 @@ const Sidebar = () => {
       adminOnly: false,
     },
     {
+      name: "Live Tracking & HUD",
+      path: "/live-tracking",
+      icon: "📡",
+      adminOnly: false,
+    },
+    {
+      name: "Multi-Vehicle Sim",
+      path: "/multi-vehicle-planner",
+      icon: "🗺️",
+      adminOnly: false,
+    },
+    {
       name: "Rider Tasks",
       path: "/rider",
       icon: "⚡",
@@ -25,9 +36,9 @@ const Sidebar = () => {
       icon: "↗",
       adminOnly: true,
     },
-    { name: 'Deliveries', path: '/deliveries', icon: '□', adminOnly: false },
-    { name: 'Mixed Fleet', path: '/fleet', icon: '▣', adminOnly: true },
-    { name: 'Optimization History', path: '/optimization-history', icon: '◷', adminOnly: true },
+    { name: "Deliveries", path: "/deliveries", icon: "□", adminOnly: false },
+    { name: "Mixed Fleet", path: "/fleet", icon: "▣", adminOnly: true },
+    { name: "Optimization History", path: "/optimization-history", icon: "◷", adminOnly: true },
     {
       name: "AHP Analysis",
       path: "/ahp",
